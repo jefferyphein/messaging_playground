@@ -1,0 +1,4 @@
+Run "python client.py" with paho installed to set up a client that subscribes
+to the "topic" topic.
+
+Run "python pubish.py" to publish a "Hello, World!" message to the "topic" topic.

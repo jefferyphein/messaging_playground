@@ -1,0 +1,20 @@
+(1) Build and install cJSON to PREFIX.
+
+        cmake -DCMAKE_PREFIX_PATH=$PREFIX .
+        make
+        make install
+
+(2) Build and install mosquitto to PREFIX as a static binary.
+
+        cmake -DCMAKE_PREFIX_PATH=$PREFIX .
+        CPATH=$PREFIX/include make WITH_DOCS=no WITH_WEBSOCKETS=no WITH_STATIC_LIBRARIES=yes
+        make install
+
+    This will place libmosquitto.so into $PREFIX/lib64, and so you may need to
+    add $PREFIX/lib64 to your LD_LIBRARY_PATH.
+
+(3) Not sure why, but it doesn't actually install the actual mosquitto broker
+    to your $PREFIX/bin path. Upon succesfully building the binary, there is
+    also the broker at "src/mosquitto".
+
+        cp src/mosquitto $PREFIX/bin

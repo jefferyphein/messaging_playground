@@ -1,0 +1,60 @@
+(1) Run "mosquitto" on a machine to set up the broker. By default it runs on
+    port 1883 in non-TLS mode and port 8883 in TLS mode.
+
+(2) Once the broker is running, in separate terminals on the same machine, you
+    can run the pub/sub binaries to test it out.
+
+    To subscribe to a topic:
+
+        mosquitto_sub -t topic
+
+    To publish to a topic:
+
+        mosquitto_pub -t topic -m "Hello, World!"
+
+    You should see "Hello, World!" appear on the subscriber terminal if
+    everything is configured correctly. You'll also see the publish client
+    connect and disconnect on the broker terminal.
+
+(3) If you run two subscribers and then publish a message, you will see the
+    message appear on both subscriber windows. There is no way to "distribute"
+    this work as with RabbitMQ. However, there is a hierarchy to topics. Try
+    the following...
+
+    Two subscribers (same machine, different terminals):
+
+        mosquitto_sub -t topic/a
+        mosquitto_sub -t topic/b
+
+    One publisher, two messages:
+
+        mosquitto_sub -t topic/a -m "Hello, Topic A!"
+        mosquitto_sub -t topic/b -m "Hello, Topic B!"
+
+    This allows you to selectively subscribe to topics of interest, but under
+    the same "topic" tree.
+
+    Topic hierarchy is separated with forward slashes / and can be arbitrarily
+    long. For example, a very specific topic could have a hierarchy organized
+    as follows "<author>/<book>/<page>" that lets you subscribe to a specific
+    page of a specific book from a specific author.
+
+(4) You can also subscribe to specific topic pattern. Try the following...
+
+    One subscriber:
+
+        mosquitto_sub -t topic/+
+
+    One publisher, three messages:
+
+        mosquitto_pub -t topic/a -m "Hello, Topic A!"
+        mosquitto_pub -t topic/b -m "Hello, Topic B!"
+        mosquitto_pub -t topic/c/blah -m "Hello, Topic C (blah)!"
+
+    The subscriber should only get the first two messages, but not the third.
+    This is because + only matches one level of topic wild cards. However, if
+    the subscriber subscribed as follows
+
+        mosquitto_sub -t topic/#
+
+    it would see all three messages, since # wild card expansion is multi-level.

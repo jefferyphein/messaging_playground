@@ -1,0 +1,11 @@
+(1) Install paho via PyPi into a virtual environment with
+
+        pip install paho-mqtt
+
+    or into your user directory
+
+        pip install paho-mqtt --user
+
+    or with conda
+
+        conda install paho-mqtt
