@@ -1,0 +1,36 @@
+This example is intended to show how to use the pub/sub message pattern.
+
+This code was slightly modified from the official RabbitMQ documentation, which
+can be found here:
+
+    https://www.rabbitmq.com/tutorials/tutorial-three-python.html
+
+(1) Run "python receive_logs.py" in two separate windows. Each of these will
+    record the messages sent by the emit logs script.
+
+(2) In a third terminal, run "python emit_logs.py". This will send a simple
+    "Hello World!" message to the RabbitMQ exchange. You should see this
+    message appear in both terminals running the receiver script.
+
+(3) Kill both of receivers with CTRL+C, then run the emitter to send a message.
+    Now, restart one of the receivers, and note that the message you just sent
+    was not received!
+
+    This is because each receiver actually registers a "temporary queue" that
+    only exists while the receiver is running, and disappears when the receiver
+    is killed.
+
+    Compare this to the previous examples, where we set up a "durable queue"
+    that remained even after the process that created it was killed.
+
+    This highlights a key point of how RabbitMQ processes messages. Messages
+    are published to exchanges, not queues. In this case, messages are
+    published to the "logs" exchange, and routed to queues from there. The
+    receivers, when they start up, each bind a "temporary queue" to the "logs"
+    fanout exchange, allowing the exchange to deposit messages in the queues
+    of the receivers.
+
+    The exchange then, at the time it receives the message, routes one copy of
+    the message to each queue bound to the exchange at that time, then
+    immediately forgets about it. If no queues exist, the message is lost
+    forever.
