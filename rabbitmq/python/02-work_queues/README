@@ -1,0 +1,42 @@
+This example is intended to show how to use work queues.
+
+This code was slightly modified from the official RabbitMQ documentation, which
+can be found here:
+
+    https://www.rabbitmq.com/tutorials/tutorial-two-python.html
+
+(1) Run "python worker.py". You should see it display the following:
+
+        [*] Waiting for messages. To exit press CTRL+C"
+
+(2) In a second terminal, run
+
+        python new_task.py Hello...
+
+    The task will immediately return, but you should see "Hello..." appear in
+    your first terminal. After three seconds, it should display "[x] Done"
+
+(3) Run the command from Step 2 again, but vary the number of periods at the
+    end of your task. Each period causes a one-second delay between the time
+    the message is received by the worker and when it acknowledges the message.
+    Do this as many times as you want. Each message will go into a queue and
+    await it's turn.
+
+(4) Start up a second worker in a third terminal. If you still have unprocessed
+    messages in your queue from Step 3, you should see those messages show up
+    immediately.
+
+(5) Once both workers are done working and are waiting for new messages
+    (either by killing and restarting them or by waiting until they both
+    finish), submit a single message:
+
+        python new_task.py Waiting....................
+
+    This should take 20 seconds to complete. Before the 20 seconds are up,
+    however, kill whichever of the two workers picked up the message, and note
+    how the message was immediately transferred to the second still-alive
+    worker.
+
+    This is because messages are not removed from the work queue until they are
+    acknowledged. Any unacknowledged messages are returned to the queue if the
+    worker that fetched it dies prematurely.

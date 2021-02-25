@@ -1,0 +1,16 @@
+This example is intended to be a very brief demonstration of RabbitMQ queues.
+
+This code was slightly modified from the official RabbitMQ documentation, which
+can be found here:
+
+    https://www.rabbitmq.com/tutorials/tutorial-one-python.html
+
+(1) Run "python send.py" to submit a message to a queue. You can run this
+    command as many times as you like, each message will get put into a queue
+    to await later consumption.
+
+(2) Run "python receive.py" to subscribe to the queue and both pull down any
+    back log of messages, as well as any new messages.
+
+(3) While Step 2 is running, run "python send.py" again and observe that each
+    time this is run, a "Hello World!" message appears on the receiving end.

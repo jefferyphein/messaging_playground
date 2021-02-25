@@ -1,0 +1,8 @@
+These examples are copied nearly verbatim from the official RabbitMQ
+documentation.
+
+    https://www.rabbitmq.com/getstarted.html
+
+To run each of these scripts, you'll need an activate RabbitMQ broker running.
+If the broker is not running on "localhost", you'll need to modify each script
+to point to the broker's host.

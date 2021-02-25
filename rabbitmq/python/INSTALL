@@ -1,0 +1,11 @@
+(1) Install pika via PyPi into a virtual environment with
+
+        pip install pika
+
+    or into your user directory
+
+        pip install pika --user
+
+    or with conda
+
+        conda install pika
