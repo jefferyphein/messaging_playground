@@ -1,0 +1,54 @@
+This example is intended to show how to use direct exchanges.
+
+This code was slightly modified from the official RabbitMQ documentation, which
+can be found here:
+
+    https://www.rabbitmq.com/tutorials/tutorial-four-python.html
+
+(1) In two separate terminals, run the following commands:
+
+        python receive_logs_direct.py info
+        python receive_logs_direct.py debug
+
+(2) In a third terminal, run the following commands:
+
+        python emit_log_direct.py info "Hello World: info"
+        python emit_log_direct.py debug "Hello World: debug"
+        python emit_log_direct.py warning "Hello World: warning"
+
+    You should notice that the first two messages appear once in each receiver,
+    however, the third message does not appear at all.
+
+(3) Start up a fourth terminal and run
+
+        python receive_logs_direct.py warning
+
+    The third message you sent in Step 2 does not appear for the same reasons
+    outlined in Tutorial 3: the message was lost because there were no queues
+    bound to the exchange with the routing key "warning" when the message was
+    emitted.
+
+    However, if you ran the third "warning" command again, it should appear in
+    this new terminal now that it is subscribed.
+
+(4) In yet another terminal, start another receiver bound to the "info" routing
+    key via the command "python receive_logs_direct.py info". You should now
+    have two "info" receivers. Run the following command again:
+
+        python emit_log_direct.py info "Hello World: info"
+
+    Similar to Tutorial 3, you should see both "info" receivers display the
+    message, however, not all receivers get the message.
+
+    This demonstrates the "topic exchange" feature of RabbitMQ. By creating
+    a topic exchange, any number of subscribers can subscribe to a specific
+    topic and receive messages only on that topic.
+
+    In comparison to a "fanout exchange" we saw in Tutorial 3, direct
+    exchanges allow for more control over which messages are received by the
+    subscriber. Fanout exchanges do not allow for routing keys to distinguish
+    incoming messages, instead blasting out all messages to all queues bound
+    to the fanout exchange.
+
+    As we saw here, however, direct exchanges allow for more control over the
+    types of messages the subscriber receives via the exchange routing key.
