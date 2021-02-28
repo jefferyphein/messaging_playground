@@ -40,9 +40,9 @@ can be found here:
     Similar to Tutorial 3, you should see both "info" receivers display the
     message, however, not all receivers get the message.
 
-    This demonstrates the "topic exchange" feature of RabbitMQ. By creating
-    a topic exchange, any number of subscribers can subscribe to a specific
-    topic and receive messages only on that topic.
+    This demonstrates the "direct exchange" feature of RabbitMQ. By creating
+    a direct exchange, any number of subscribers can subscribe to a specific
+    routing key and only receive messages that match the routing key.
 
     In comparison to a "fanout exchange" we saw in Tutorial 3, direct
     exchanges allow for more control over which messages are received by the

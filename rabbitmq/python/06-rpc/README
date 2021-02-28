@@ -1,0 +1,74 @@
+This example is intended to demonstrate a simple RPC pattern.
+
+This code was slightly modified from the official RabbitMQ documentation, which
+can be found here:
+
+    https://www.rabbitmq.com/tutorials/tutorial-six-python.html
+
+(1) In two separate terminals, run the following
+
+        python rpc_server.py
+        python rpc_client.py
+
+    The server runs accepts messages containing an integer string, computes the
+    n-th Fibonacci number, and returns the answer.
+
+    In this example, the server simply computes the 30-th Fibonacci number and
+    returns it to the requesting client.
+
+    The response sent from the server uses the built-in correlation_id property
+    to ensure that the client can match requests and responses. Additionally,
+    the client also provides the reply_to field pointing to an exclusive queue
+    established by each individual client. This is used by the server to
+    determine where to publish the response.
+
+    Using the correlation_id property is not strictly necessary in this example,
+    since the client only makes one request at a time; however, one can imagine
+    a scenario where the client generates multiple distinct requests and needs
+    the ability to distinguish responses and correlate them with requests.
+
+(2) Being a simple RPC pattern, this begs a number of questions:
+
+    - What should happen if the client dies before the server finishes
+        calculating the answer?
+
+        In this example, the server will simply publish the answer to an
+        exclusive queue that no longer exists. However, if you don't want
+        responses to get lost, it's sometimes better to create a durable queue
+        in advance for publishing responses.
+
+    - What happens if the client submits a request before the server starts?
+
+        In this example, the client simply blocks until a response is published
+        to its exclusive queue by the server. If the server is never started,
+        no response will ever come, and the client blocks forever. If this is
+        not desired behavior, one solution might be to move on to a different
+        request (or terminate the client) after a fixed amount of time without
+        receiving a response. However, this solution poses even more questions:
+        What of the original request? Was it ever picked up by a server? Is it
+        still in the queue? Do we care if a server picks it up, computes, then
+        sends a response to a client that is no longer listening for a response?
+        These are all tough questions that need to be addressed on a
+        problem-by-problem basis.
+
+    - What happens if the server fails during a request?
+
+        In this example, the request remains in the "rpc_queue" queue until
+        either the server restarts or another server picks up the request. This
+        may be desired behavior, but may not be if the request is what caused
+        the failure in the first place!
+
+        If the request was malformed, for example, the message will remain in
+        the queue forever, bouncing from server to server, causing a failure
+        each and every time, until the message is manually removed from the
+        queue. In this case, we would clearly want to remove the request from
+        the queue immediately upon detecting such a failure.
+
+        This poses some challenging problems: How do we handle errors? Can we
+        always detect persistent failures? Can we detect transient failures?
+
+        In the case of persistent errors, caused by malformed messages, we
+        clearly want to remove the message from the queue, and send an error
+        back to the client, if possible. However, in the case of transient
+        errors, it may sometimes be best to just reject the message and move
+        along, hoping for the error to eventually resolve itself.

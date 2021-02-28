@@ -1,0 +1,53 @@
+This example is intended to show how to use topic exchanges.
+
+This code was slightly modified from the official RabbitMQ documentation, which
+can be found here:
+
+    https://www.rabbitmq.com/tutorials/tutorial-five-python.html
+
+(1) To set up the receiver to read all messages, run with:
+
+        python receive_log_topic.py #
+
+    The first parameter is a "binding key" used to declare which routing keys
+    this receiver will match. In this case "#" (hash) binds to all routing
+    keys, since # matches zero or more words. There is also "*" (asterisk)
+    that binds to a single word. Note that words are separated by "."
+    (period) in the routing key.
+
+(2) In a separate terminal, run
+
+        python emit_log_topic.py cron.info "Hello World"
+
+    and you should see this message show up in the receiver window. The first
+    parameter is the desired routing key, with all remaining parameters making
+    up the log message.
+
+(3) Kill the receiver and relaunch with a slightly more complicated binding
+
+        python receive_log_topic.py "*.critical"
+
+    You will now only see messages that match "<word>.critical".
+
+(4) In the second terminal, run the following commands:
+
+        python emit_log_topic.py cron.critical "cron job failed"
+        python emit_log_topic.py some.service.critical "some service failed"
+
+    You should see the first message appear in the receiver, but not the
+    second message, since the *.critical binding doesn't actually match the
+    routing key of the second message.
+
+(5) Kill the receiver and rerun as
+
+        python receive_log_topic.py "#.critical"
+
+    Rerunning the same commands from Step 4, you should see both messages
+    appear on in the receiver, since #.critical matches zero or more words
+    prior to ".critical".
+
+    Compared to direct exchanges (Tutorial 4) and fanout exchanges (Tutorial 3),
+    topic exchanges provide even more subscription flexibility than either
+    direct or fanout exchanges, precisely because of the binding keys. Note
+    that setting up a topic exchange within a binding key that doesn't contain
+    a wildcard makes it equivalent to a direct exchange.
