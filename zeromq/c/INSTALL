@@ -1,5 +1,5 @@
 (1) You will need "cmake" to build the ZeroMQ source code from the official
-    ZeroMQ Githug page available here:
+    ZeroMQ Github page available here:
 
         https://github.com/zeromq/libzmq
 
