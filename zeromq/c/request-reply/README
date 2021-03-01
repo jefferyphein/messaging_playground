@@ -1,0 +1,18 @@
+This example demonstrates a simple request-reply pattern using ZeroMQ.
+
+This code was copied directly from the official ZeroMQ documentation:
+
+    https://zeromq.org/languages/c/#libzmq
+
+(1) Build the client/server executables by simply running "make"
+
+(2) In separate terminals, run
+
+        ./server
+        ./client
+
+    The client will then connect to the server via TCP on port 5555 and send a
+    "Hello" message to the server then wait for the server to respond with a
+    "World" message response. The server simulates work latency by sleeping for
+    one second before sending its response. The client sends 10 of these
+    messages before exiting.

@@ -1,0 +1,16 @@
+This example demonstrates a simple request-reply pattern using ZeroMQ.
+
+This code was copied directly from the official ZeroMQ documentation:
+
+    https://zeromq.org/languages/python/
+
+(1) In separate terminals run
+
+        python server.py
+        python client.py
+
+    The client will connect to the server via TCP on port 555 and send a
+    "Hello" message to the server and await a response. The server, responds to
+    each incoming request with a "World" message after sleeping for one second
+    to simulate work latency. The client sends a total of 10 "Hello" messages
+    before exiting.

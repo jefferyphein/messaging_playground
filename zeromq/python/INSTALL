@@ -1,0 +1,12 @@
+(1) You will need to install the "pyzmq" package to use these examples. You can
+    install this package via PyPi to a virtual environment by running
+
+        pip install pyzmq
+
+    or to a user directory with
+
+        pip install pyzmq --user
+
+    or into a conda enviroment with
+
+        conda install pyzmq    
