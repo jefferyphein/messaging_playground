@@ -18,4 +18,4 @@
 
     This installs the libzmq libraries to $PREFIX/lib64, and so you may need
     to add that path to your LD_LIBRARY_PATH and/or LIBRARY_PATH when linking
-    against this library.
+    and running against this library.
