@@ -98,3 +98,6 @@ connection.ioloop.start()
 
 without this nothing ever blocks the current thread and we exit
 immediately without doing anything!
+
+Now leave this running and push a message into the queue using one the
+previous publishing examples. It works exactly like 
