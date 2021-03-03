@@ -41,7 +41,8 @@ interact with the broker.
 Let's repeat the same example using a `SelectConnection`
 
 First, assume we have a `pika.ConnectionParameters`  that
-will let us connect to our broker. Creating a connection is simple,
+will let us connect to our broker (copy whatever worked on the
+previous examples). Creating a connection is simple,
 almost like a `BlockingConnection`:
 
 ```python
@@ -100,4 +101,5 @@ without this nothing ever blocks the current thread and we exit
 immediately without doing anything!
 
 Now leave this running and push a message into the queue using one the
-previous publishing examples. It works exactly like 
+previous publishing examples. It works exactly like the consumer
+examples using `BlockingConnection`.
