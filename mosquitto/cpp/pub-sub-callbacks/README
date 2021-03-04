@@ -1,10 +1,7 @@
-Run "make" to build both a simple publisher and simple subscriber.
+Run "make" to build both an async publisher and async subscriber.
 
 The subscriber subscribes to a pre-defined topic, and waits until it receives
-"This is the last message." before it unsubscribes and exits.
+a "shutdown" message before it disconnects and exits.
 
-The publisher publishes "Hello, World!" ten times, followed by the terminal
-"This is the last message." and exits.
-
-Note that if you start the publisher before the subscriber, not all messages
-will be received by the subscriber.
+The publisher publishes a few messages, followed by a "shutdown" message,
+disconnects, and exits.
