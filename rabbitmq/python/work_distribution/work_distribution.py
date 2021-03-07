@@ -66,7 +66,7 @@ def main():
     pool = concurrent.futures.ThreadPoolExecutor(2)
 
     def process_message(channel, method, properties, body):
-        print("Got message %s"%body)
+        print("Got message %s" % body)
         task = pool.submit(work_function, body)
 
         def cb(r):
