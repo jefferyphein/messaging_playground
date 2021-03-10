@@ -29,7 +29,7 @@ class Worker:
 
     def __call__(self, body):
         loop = self.loop_pool.setdefault(
-            threading.current_thread(),
+            threading.get_ident(),
             asyncio.new_event_loop())
         print("Starting work on %s"%body)
         tasks = []
