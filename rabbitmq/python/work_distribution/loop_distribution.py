@@ -1,6 +1,7 @@
 "Work pool RabbitMQ consumer"
 
 import concurrent.futures
+import threading
 import ssl
 import time
 import asyncio
@@ -19,8 +20,7 @@ def work_function(body):
 
 class Worker:
     def __init__(self):
-        self.loop = asyncio.new_event_loop()
-
+        self.loop_pool = {}
 
     async def some_task(self, i):
         print("Starting task %s"%i)
@@ -28,15 +28,18 @@ class Worker:
         return i+1
 
     def __call__(self, body):
+        loop = self.loop_pool.setdefault(
+            threading.current_thread(),
+            asyncio.new_event_loop())
         print("Starting work on %s"%body)
         tasks = []
         for i in range(10):
             print("Creating tasks %s"%i)
-            t = asyncio.ensure_future(self.some_task(i), loop=self.loop)
+            t = asyncio.ensure_future(self.some_task(i), loop=loop)
             tasks.append(t)
         all_tasks = asyncio.gather(*tasks)
         print("running ioloop")
-        results = self.loop.run_until_complete(all_tasks)
+        results = loop.run_until_complete(all_tasks)
         return sum(results)
 
 
@@ -90,7 +93,6 @@ def main():
 
     pool = concurrent.futures.ThreadPoolExecutor(2)
 
-
     worker = Worker()
 
     def process_message(channel, method, properties, body):
@@ -99,6 +101,7 @@ def main():
 
         def cb(r):
             print("Work done, ack'ing message")
+            print("Got result %s"%r.result())
             channel.basic_ack(method.delivery_tag)
 
         task.add_done_callback(cb)
