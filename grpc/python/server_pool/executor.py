@@ -38,6 +38,7 @@ class grpcPoolExecutor(Executor):
             # As the channels become ready, add them to the queue of
             # available channels
             self._channel_queue.put(ch)
+            self._is_running = True
         return
 
     def submit(self, fn, request):
@@ -55,6 +56,9 @@ will eventually have the results of the RPC.
         request - a gRPC request to be passed into the method
 
         """
+        if not self._is_running:
+            raise RuntimeError("cannot schedule new futures after shutdown")
+
         target = fn.__name__
 
         def submit_task():
@@ -75,4 +79,28 @@ will eventually have the results of the RPC.
         pass
 
     def shutdown(self, wait=True, cancel_futures=False, close_channels=False):
-        pass
+        self._is_running = False
+        incomplete_tasks = [ f for f in self._tasks if not f.done() ]
+        running_tasks = [ f for f in self._tasks if f.running() ]
+
+        # If both cancel_futures and wait are True, all futures that
+        # the executor has started running will be completed prior to
+        # this method returning. The remaining futures are cancelled.
+        if wait and cancel_futures:
+            for f in as_completed(running_tasks):
+                pass
+
+        if cancel_futures:
+            for fut in self._tasks:
+                fut.cancel()
+
+        if wait:
+            for f in as_completed(self._tasks):
+                pass
+
+        if close_channels:
+            self._channel_queue.put(None)
+            for ch in iter(self._channel_queue.get, None):
+                ch.close()
+
+        return
