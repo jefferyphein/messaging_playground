@@ -19,7 +19,6 @@ class grpcPoolExecutor(Executor):
 
         """
         self._channels = channels
-        self._max_workers = max_workers
         self._stub = service_stub
         self._is_running = False
         self._channel_queue = queue.Queue()
