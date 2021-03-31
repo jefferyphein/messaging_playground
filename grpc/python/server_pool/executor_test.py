@@ -18,3 +18,12 @@ if __name__ == '__main__':
 
     for f in as_completed(futs):
         print(f.result())
+    pool.shutdown(close_channels=False)
+
+    # test with statement
+
+    with executor.grpcPoolExecutor(5, channels, hello_pb2_grpc.GreeterStub) as pool:
+        f = pool.submit(hello_pb2_grpc.Greeter.SayHello,
+                        hello_pb2.HelloRequest(name='test')
+                        )
+        f.add_done_callback(lambda r: print("done"))
