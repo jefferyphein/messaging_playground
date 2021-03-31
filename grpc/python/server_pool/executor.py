@@ -61,6 +61,7 @@ will eventually have the results of the RPC.
             chan = self._channel_queue.get()
             stub = self._stub(chan)
             response = getattr(stub, target)(request)
+            self._channel_queue.put(chan)
             return response
 
         fut = self._pool.submit(submit_task)
@@ -73,5 +74,5 @@ will eventually have the results of the RPC.
     def map(self, func, *interable, timeout=None, chunksize=1):
         pass
 
-    def shutdown(self, wait=True, *, cancel_futures=False):
+    def shutdown(self, wait=True, cancel_futures=False, close_channels=False):
         pass
