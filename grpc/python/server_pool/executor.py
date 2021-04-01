@@ -74,9 +74,6 @@ will eventually have the results of the RPC.
 
         return fut
 
-    def map(self, func, *interable, timeout=None, chunksize=1):
-        pass
-
     def shutdown(self, wait=True, cancel_futures=False, close_channels=False):
         self._is_running = False
         incomplete_tasks = [ f for f in self._tasks if not f.done() ]
