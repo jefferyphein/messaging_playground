@@ -1,7 +1,34 @@
 import queue
+from functools import partialmethod
 from concurrent.futures import Executor, as_completed, ThreadPoolExecutor
 
 import grpc
+
+class ServiceWrapper:
+    def __init__(self, service_stub):
+        self._stub = service_stub
+        meths = []
+        # I'm so sorry!
+        with grpc.insecure_channel('localhost') as ch:
+            serv = service_stub(ch)
+            for name in dir(serv):
+                if name.startswith('_'):
+                    continue
+                if callable(getattr(serv, name)):
+                    meths.append(name)
+        # Now we know the names of all the non-private methods. But at
+        # what cost?
+
+        for name in meths:
+            bind_call = partialmethod(ServiceWrapper._run_rpc, name).__get__(self)
+            setattr(self, name, bind_call)
+
+        return
+
+    def _run_rpc(self, method, channel, request):
+        stub = self._stub(channel)
+        reply = getattr(stub, method)(request)
+        return reply
 
 
 class grpcPoolExecutor(Executor):
@@ -33,14 +60,14 @@ class grpcPoolExecutor(Executor):
         def do_connect(channel):
             return grpc.channel_ready_future(channel)
 
-        for ch,fut in [(c,do_connect(c)) for c in self._channels]:
+        for ch,fut in [(c, do_connect(c)) for c in self._channels]:
             # As the channels become ready, add them to the queue of
             # available channels
             self._channel_queue.put(ch)
             self._is_running = True
         return
 
-    def submit(self, fn, request):
+    def submit(self, fn: ServiceWrapper, request):
         """Submit a callable RPC method to be executed. Returns a future that
 will eventually have the results of the RPC.
 
@@ -58,12 +85,13 @@ will eventually have the results of the RPC.
         if not self._is_running:
             raise RuntimeError("cannot schedule new futures after shutdown")
 
-        target = fn.__name__
-
         def submit_task():
             chan = self._channel_queue.get()
-            stub = self._stub(chan)
-            response = getattr(stub, target)(request)
+            if chan is None:
+                response = concurrent.futures.Future()
+                response.set_exception(RuntimeError("pool closed while task in progress"))
+                return response
+            response = fn(chan, request)
             self._channel_queue.put(chan)
             return response
 
@@ -98,5 +126,13 @@ will eventually have the results of the RPC.
             self._channel_queue.put(None)
             for ch in iter(self._channel_queue.get, None):
                 ch.close()
+
+        while not self._channel_queue.empty():
+            try:
+                ch = self._channel_queue.get_nowait()
+            except queue.Empty:
+                continue
+            if ch is not None:
+                self._channel_queue.put(None)
 
         return

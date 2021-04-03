@@ -10,10 +10,12 @@ if __name__ == '__main__':
     channels = [grpc.insecure_channel('localhost:%s'%port) for port in [50051,50052,50052,50054,50055]]
     pool = executor.grpcPoolExecutor(5, channels, hello_pb2_grpc.GreeterStub)
 
+    Greeter = executor.ServiceWrapper(hello_pb2_grpc.GreeterStub)
+
     futs = []
     for i in range(100):
         req = hello_pb2.HelloRequest(name='name_%s'%i)
-        f = pool.submit(hello_pb2_grpc.Greeter.SayHello, req)
+        f = pool.submit(Greeter.SayHello, req)
         futs.append(f)
 
     for f in as_completed(futs):
@@ -23,7 +25,7 @@ if __name__ == '__main__':
     # test with statement
 
     with executor.grpcPoolExecutor(5, channels, hello_pb2_grpc.GreeterStub) as pool:
-        f = pool.submit(hello_pb2_grpc.Greeter.SayHello,
+        f = pool.submit(Greeter.SayHello,
                         hello_pb2.HelloRequest(name='test')
                         )
         f.add_done_callback(lambda r: print("done"))
