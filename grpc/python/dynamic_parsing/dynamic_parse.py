@@ -11,9 +11,10 @@ import google.protobuf.reflection
 from google.protobuf import message as _message
 
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(
+    description="Read the given protobuf descriptor and parse binary data on stdin"
+)
 parser.add_argument("descriptor")
-parser.add_argument('proto')
 parser.add_argument('message_type')
 
 args = parser.parse_args()
