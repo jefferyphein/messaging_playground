@@ -2,7 +2,6 @@ import time
 from urllib.parse import urlparse
 
 import paramiko
-from scp import SCPClient
 
 import google.protobuf
 import google.protobuf.descriptor
@@ -53,11 +52,9 @@ class CachedDescriptor:
         ssh = paramiko.SSHClient()
         ssh.load_system_host_keys()
         ssh.connect(netloc)
-        with SCPClient(ssh.get_transport()) as scp:
-            with tempfile.NamedTemporaryFile() as tmp:
-                scp.fetch(path, tmp)
-                return tmp.read()
-
+        with paramiko.sftp_client.SFTPClient.from_transport(ssh.get_transport()) as sftp:
+            with sftp.open(path, 'r') as f:
+                return f.read()
 
     @staticmethod
     def _load_descriptor(pool, serialized_pb):

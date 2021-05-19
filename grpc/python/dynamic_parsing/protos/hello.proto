@@ -10,7 +10,6 @@ message Person {
     MOBILE = 0;
     HOME = 1;
     WORK = 2;
-    
   }
   message PhoneNumber {
     optional string number =1;
