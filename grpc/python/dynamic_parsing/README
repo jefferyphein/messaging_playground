@@ -1,0 +1,3 @@
+Run "make" to build necessary descriptors and data blobs.
+
+Run "make test" to actually run the example.
