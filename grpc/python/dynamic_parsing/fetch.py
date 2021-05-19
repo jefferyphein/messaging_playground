@@ -1,6 +1,9 @@
 import time
 from urllib.parse import urlparse
 
+import paramiko
+from scp import SCPClient
+
 import google.protobuf
 import google.protobuf.descriptor
 import google.protobuf.descriptor_pb2
@@ -30,21 +33,31 @@ class CachedDescriptor:
             fetcher = getattr(self, '_fetch_%s'%scheme)
         except AttributeError:
             raise ValueError("Don't know how to fetch '%s'"%scheme)
-        serialized_pb = fetcher(netloc, path)
+        serialized_pb = fetcher(url)
         return serialized_pb
 
     @staticmethod
-    def _fetch_file(netloc, path):
+    def _fetch_file(url):
+        scheme,netloc,path,params,query,fragment = urlparse(url)
         with open(path, 'rb') as infile:
             return infile.read()
 
     @staticmethod
-    def _fetch_http(netloc, path):
-        raise NotImplementedError
+    def _fetch_http(url):
+        response = urllib.request.urlopen(url)
+        return response.read()
 
     @staticmethod
-    def _fetch_ssh(netloc, path):
-        raise NotImplementedError
+    def _fetch_ssh(url):
+        scheme,netloc,path,params,query,fragment = urlparse(url)
+        ssh = paramiko.SSHClient()
+        ssh.load_system_host_keys()
+        ssh.connect(netloc)
+        with SCPClient(ssh.get_transport()) as scp:
+            with tempfile.NamedTemporaryFile() as tmp:
+                scp.fetch(path, tmp)
+                return tmp.read()
+
 
     @staticmethod
     def _load_descriptor(pool, serialized_pb):
