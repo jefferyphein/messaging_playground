@@ -57,6 +57,10 @@ class CachedDescriptor:
                 return f.read()
 
     @staticmethod
+    def _fetch_sftp(url):
+        return CachedDescriptor._fetch_ssh(url)
+
+    @staticmethod
     def _load_descriptor(pool, serialized_pb):
         "Load the serialized protobuf data into the descriptor pool"
         file_desc = google.protobuf.descriptor_pb2.FileDescriptorSet.FromString(serialized_pb)
