@@ -12,18 +12,13 @@ from google.protobuf import message as _message
 
 
 class CachedDescriptor:
-    def __init__(self, pool, message_type, descriptor_url):
-        self.message_type = message_type
+    def __init__(self, pool, descriptor_url):
         serialized_pb = self._fetch_descriptor(descriptor_url)
         self._load_descriptor(pool, serialized_pb)
         self.creation_time = time.monotonic()
         self.pool = pool
-        msg_desc = self.pool.FindMessageTypeByName(self.message_type)
-        self._MessageClass = google.protobuf.reflection.GeneratedProtocolMessageType(
-            self.message_type.split('.')[-1],
-            (_message.Message,),
-            {'DESCRIPTOR': msg_desc}
-        )
+
+        self._msg_classes = {}
 
     def _fetch_descriptor(self, url):
         """Download the descriptor file from the URL"""
@@ -73,10 +68,19 @@ class CachedDescriptor:
         "Age of the cached object in seconds"
         return time.monotonic() - self.creation_time
 
-    @property
-    def MessageClass(self):
+    def MessageClass(self, message_type):
         "Class corresponding to the given message type"
-        return self._MessageClass
+        try:
+            MessageClass = self._msg_classes[message_type]
+        except KeyError:
+            msg_desc = self.pool.FindMessageTypeByName(message_type)
+            MessageClass = google.protobuf.reflection.GeneratedProtocolMessageType(
+            message_type.split('.')[-1],
+            (_message.Message,),
+            {'DESCRIPTOR': msg_desc}
+            )
+        return MessageClass
+
 
 
 class DescriptorFetcher:
@@ -88,27 +92,18 @@ class DescriptorFetcher:
         """
 
         self._cache = {}
-        self._descripter_fetch_time = {}
         self.pool = google.protobuf.descriptor_pool.DescriptorPool()
         self._max_age = max_age
 
     def fetch(self, url, message_type):
         "Retrieve the descriptor from the url and return the message"
         # First check how old the last fetch of that URL is
-        last_fetch = self._descripter_fetch_time.get(url)
-        force_update = False
-        if last_fetch is None or time.monotonic() - last_fetch > self._max_age:
-            # Either we've never gotten it before, or it's old so we
-            # need to force and update for every message type coming
-            # from that descriptor
-            force_update = True
 
-        descriptor = self._cache.get((url, message_type))
+        descriptor = self._cache.get(url)
 
-        if force_update or descriptor is None:
+        if descriptor is None or descriptor.age() > self._max_age:
             print("Fetching update")
-            descriptor = CachedDescriptor(self.pool, message_type, url)
-            self._cache[(url, message_type)] = descriptor
-            self._descripter_fetch_time[url] = time.monotonic()
+            descriptor = CachedDescriptor(self.pool, url)
+            self._cache[url] = descriptor
 
-        return descriptor.MessageClass
+        return descriptor.MessageClass(message_type)
