@@ -19,11 +19,12 @@ class _Client:
         sock.connect(server_addr)
 
         while True:
-            sock.recv(32)
+            data = sock.recv(32)
             msgs += 1
 
             if msgs % 2**12 == 0:
                 self.checkpoint(msgs, _start)
+                print(msgs, data)
 
         sock.close()
         self.checkpoint(msgs, _start)

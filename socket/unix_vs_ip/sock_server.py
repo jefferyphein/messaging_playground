@@ -7,10 +7,13 @@ import argparse
 class _Server:
     def __init__(self, addr):
         self._addr = addr
+        self.count = 0
 
-    def __call__(self, msg):
+    def __call__(self):
         conn, _ = self._socket.accept()
         while True:
+            self.count += 1
+            msg = str(self.count).rjust(32, '0')
             try:
                 conn.send(msg.encode())
             except ConnectionResetError:
@@ -57,6 +60,8 @@ else:
     raise RuntimeError("Must specify either --ip or --unix")
 
 try:
-    server('Hello world')
+    server()
 except KeyboardInterrupt:
     pass
+
+print(server.count)

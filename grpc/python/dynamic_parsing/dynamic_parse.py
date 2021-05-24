@@ -11,6 +11,7 @@ import google.protobuf.reflection
 from google.protobuf import message as _message
 
 import fetch
+import etcd_fetcher
 
 def parse_content_type(content_type):
     parts = [p.strip() for p in content_type.split(';')]
@@ -33,6 +34,10 @@ def main():
     args = parser.parse_args()
 
     pool = fetch.DescriptorFetcher(5*60)
+
+    _etcd_fetcher = etcd_fetcher.ETCDFetcher()
+    pool.register_scheme('etcd', _etcd_fetcher)
+
     Message = pool.fetch(args.descriptor, args.message_type)
 
     # Read data from stdin

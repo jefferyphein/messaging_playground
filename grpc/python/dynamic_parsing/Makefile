@@ -11,8 +11,20 @@ protos/hello_pb2.py: protos/hello.proto
 person.out: make_person.py
 	python $< $@
 
-test: dynamic_parse.py all
-	python $< ssh://localhost/$(PWD)/hello.desc sayhello.Person < person.out
+ssh: dynamic_parse.py all
+	python $< ssh://localhost$(PWD)/hello.desc sayhello.Person < person.out
+
+sftp: dynamic_parse.py all
+	python $< sftp://localhost$(PWD)/hello.desc sayhello.Person < person.out
+
+file: dynamic_parse.py all
+	python $< file://$(PWD)/hello.desc sayhello.Person < person.out
+
+etcd: etcd_create_key dynamic_parse.py all
+	python dynamic_parse.py etcd:///protobuf/sayhello/Person sayhello.Person < person.out
+
+etcd_create_key: etcd_create_key.py hello.desc
+	python $^
 
 clean:
 	-rm -f hello.desc person.out protos/hello_pb2.py
