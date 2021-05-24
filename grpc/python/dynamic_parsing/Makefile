@@ -20,8 +20,8 @@ sftp: dynamic_parse.py all
 file: dynamic_parse.py all
 	python $< file://$(PWD)/hello.desc sayhello.Person < person.out
 
-etcd: etcd_put_key dynamic_parse.py all
-	python dynamic_parse.py etcd:///protobuf/sayhello/Person sayhello.Person < person.out
+etcd: dynamic_parse.py etcd_put_key.py all
+	python $< etcd:///protobuf/sayhello/Person sayhello.Person < person.out
 
 etcd_put_key: etcd_put_key.py hello.desc
 	python $^

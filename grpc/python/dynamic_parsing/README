@@ -1,3 +1,9 @@
 Run "make" to build necessary descriptors and data blobs.
 
-Run "make test" to actually run the example.
+Run "make ssh" to test SSH functionality.
+
+Run "make sftp" to test SFTP functionality.
+
+Run "make file" to test FILE functionality.
+
+Run "make etcd" to test ETCD functionality.
