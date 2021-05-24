@@ -1,4 +1,6 @@
 PROTOC_OPTIONS = --experimental_allow_proto3_optional
+ETCD_KEY = /protobuf/sayhello/Person
+GRPC_MESSAGE_TYPE = sayhello.Person
 
 all: hello.desc protos/hello_pb2.py person.out
 
@@ -12,19 +14,19 @@ person.out: make_person.py
 	python $< $@
 
 ssh: dynamic_parse.py all
-	python $< ssh://localhost$(PWD)/hello.desc sayhello.Person < person.out
+	python $< ssh://localhost$(PWD)/hello.desc $(GRPC_MESSAGE_TYPE) < person.out
 
 sftp: dynamic_parse.py all
-	python $< sftp://localhost$(PWD)/hello.desc sayhello.Person < person.out
+	python $< sftp://localhost$(PWD)/hello.desc $(GRPC_MESSAGE_TYPE) < person.out
 
 file: dynamic_parse.py all
-	python $< file://$(PWD)/hello.desc sayhello.Person < person.out
+	python $< file://$(PWD)/hello.desc $(GRPC_MESSAGE_TYPE) < person.out
 
 etcd: dynamic_parse.py etcd_put_key.py all
-	python $< etcd:///protobuf/sayhello/Person sayhello.Person < person.out
+	python $< etcd://$(ETCD_KEY) $(GRPC_MESSAGE_TYPE) < person.out
 
 etcd_put_key: etcd_put_key.py hello.desc
-	python $^
+	python $^ $(ETCD_KEY)
 
 clean:
 	-rm -f hello.desc person.out protos/hello_pb2.py
