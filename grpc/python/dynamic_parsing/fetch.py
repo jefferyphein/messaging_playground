@@ -2,6 +2,7 @@ import time
 from urllib.parse import urlparse
 
 import paramiko
+import etcd3
 
 import google.protobuf
 import google.protobuf.descriptor
@@ -12,11 +13,13 @@ from google.protobuf import message as _message
 
 
 class CachedDescriptor:
-    def __init__(self, pool, descriptor_url):
+    def __init__(self, pool, descriptor_url, max_age):
         serialized_pb = self._fetch_descriptor(descriptor_url)
         self._load_descriptor(pool, serialized_pb)
         self.creation_time = time.monotonic()
         self.pool = pool
+        self._is_expired = False
+        self._max_age = max_age
 
         self._msg_classes = {}
 
@@ -51,6 +54,29 @@ class CachedDescriptor:
             with sftp.open(path, 'r') as f:
                 return f.read()
 
+    def _fetch_etcd(self, url):
+        etcd = etcd3.client()
+        scheme,netloc,path,params,query,fragment = urlparse(url)
+        path = path.strip('/')
+        serialized_pb, _ = etcd.get(path)
+
+        def cb(event):
+            if isinstance(event, etcd3.events.PutEvent):
+                serialized_pb = event.value
+                print("updated")
+                self._load_descriptor(self.pool, serialized_pb)
+            elif isinstance(event, etcd3.events.DeleteEvent):
+                # If the key was deleted then what? I guess this is
+                # invalid now
+                print("deleted")
+                self._is_expired = True
+            self._msg_classes = {}
+            return
+
+        etcd.add_watch_callback(path, cb)
+
+        return serialized_pb
+
     @staticmethod
     def _fetch_sftp(url):
         return CachedDescriptor._fetch_ssh(url)
@@ -67,6 +93,9 @@ class CachedDescriptor:
     def age(self):
         "Age of the cached object in seconds"
         return time.monotonic() - self.creation_time
+
+    def is_expired(self):
+        return self._is_expired or self.age() > self._max_age
 
     def MessageClass(self, message_type):
         "Class corresponding to the given message type"
@@ -101,9 +130,9 @@ class DescriptorFetcher:
 
         descriptor = self._cache.get(url)
 
-        if descriptor is None or descriptor.age() > self._max_age:
+        if descriptor is None or descriptor.is_expired():
             print("Fetching update")
-            descriptor = CachedDescriptor(self.pool, url)
+            descriptor = CachedDescriptor(self.pool, url, self._max_age)
             self._cache[url] = descriptor
 
         return descriptor.MessageClass(message_type)
