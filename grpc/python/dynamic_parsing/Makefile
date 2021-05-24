@@ -20,10 +20,10 @@ sftp: dynamic_parse.py all
 file: dynamic_parse.py all
 	python $< file://$(PWD)/hello.desc sayhello.Person < person.out
 
-etcd: etcd_create_key dynamic_parse.py all
+etcd: etcd_put_key dynamic_parse.py all
 	python dynamic_parse.py etcd:///protobuf/sayhello/Person sayhello.Person < person.out
 
-etcd_create_key: etcd_create_key.py hello.desc
+etcd_put_key: etcd_put_key.py hello.desc
 	python $^
 
 clean:
