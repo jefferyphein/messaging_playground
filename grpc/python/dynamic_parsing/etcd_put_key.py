@@ -10,4 +10,4 @@ with open(desc, 'rb') as f:
     data = f.read()
 
 client = etcd3.client()
-client.put(sys.argvp[2], data)
+client.put(sys.argv[2], data)

@@ -22,7 +22,7 @@ sftp: dynamic_parse.py all
 file: dynamic_parse.py all
 	python $< file://$(PWD)/hello.desc $(GRPC_MESSAGE_TYPE) < person.out
 
-etcd: dynamic_parse.py etcd_put_key.py all
+etcd: dynamic_parse.py etcd_put_key all
 	python $< etcd://$(ETCD_KEY) $(GRPC_MESSAGE_TYPE) < person.out
 
 etcd_put_key: etcd_put_key.py hello.desc
