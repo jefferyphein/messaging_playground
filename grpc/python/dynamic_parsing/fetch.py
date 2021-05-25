@@ -144,7 +144,6 @@ class DescriptorCache:
 
         if descriptor is None or descriptor.is_expired():
             self.stats.misses += 1
-            print("Fetching update")
             descriptor = CachedDescriptor(self.pool, url, self._max_age, opener)
             self._cache[url] = descriptor
         else:
