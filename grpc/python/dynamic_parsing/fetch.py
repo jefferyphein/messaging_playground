@@ -72,22 +72,6 @@ class CachedDescriptor:
         scheme,netloc,path,params,query,fragment = urlparse(url)
         path = path.strip('/')
         serialized_pb, _ = etcd.get(path)
-
-        def cb(event):
-            if isinstance(event, etcd3.events.PutEvent):
-                serialized_pb = event.value
-                print("updated")
-                self._load_descriptor(self.pool, serialized_pb)
-            elif isinstance(event, etcd3.events.DeleteEvent):
-                # If the key was deleted then what? I guess this is
-                # invalid now
-                print("deleted")
-                self._is_expired = True
-            self._msg_classes = {}
-            return
-
-        etcd.add_watch_callback(path, cb)
-
         return serialized_pb
 
     @staticmethod
