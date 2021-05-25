@@ -13,8 +13,19 @@ from google.protobuf import message as _message
 
 
 class CachedDescriptor:
-    def __init__(self, pool, descriptor_url, max_age):
-        serialized_pb = self._fetch_descriptor(descriptor_url)
+    def __init__(self, pool, descriptor_url, max_age, opener=None):
+        """pool - gRPC descriptor pool
+
+        descriptor_url -  the URL to fetch
+
+        max_age - the amount of time in seconds before the cache entry is expired
+
+        opener - URL opener function will be called with the URL as
+        its only argument. Should return the serialized protobuf
+        descriptor as `bytes`
+
+        """
+        serialized_pb = self._fetch_descriptor(descriptor_url, opener)
         self._load_descriptor(pool, serialized_pb)
         self.creation_time = time.monotonic()
         self.pool = pool
@@ -23,14 +34,15 @@ class CachedDescriptor:
 
         self._msg_classes = {}
 
-    def _fetch_descriptor(self, url):
+    def _fetch_descriptor(self, url, opener=None):
         """Download the descriptor file from the URL"""
         scheme,netloc,path,params,query,fragment = urlparse(url)
-        try:
-            fetcher = getattr(self, '_fetch_%s'%scheme)
-        except AttributeError:
-            raise ValueError("Don't know how to fetch '%s'"%scheme)
-        serialized_pb = fetcher(url)
+        if opener is None:
+            try:
+                opener = getattr(self, '_fetch_%s'%scheme)
+            except AttributeError:
+                raise ValueError("Don't know how to fetch '%s'"%scheme)
+        serialized_pb = opener(url)
         return serialized_pb
 
     @staticmethod
@@ -124,15 +136,26 @@ class DescriptorFetcher:
         self.pool = google.protobuf.descriptor_pool.DescriptorPool()
         self._max_age = max_age
 
-    def fetch(self, url, message_type):
-        "Retrieve the descriptor from the url and return the message"
+    def fetch(self, url, message_type, opener=None):
+        """Retrieve the descriptor from the url and return the message class
+
+        url - URL path to the serialized proto descriptor
+
+        message_type - fully qualified name of message type to return
+        the class for
+
+        opener - URL opener function will be called with the URL as
+        its only argument. Should return the serialized protobuf
+        descriptor as `bytes`
+
+        """
         # First check how old the last fetch of that URL is
 
         descriptor = self._cache.get(url)
 
         if descriptor is None or descriptor.is_expired():
             print("Fetching update")
-            descriptor = CachedDescriptor(self.pool, url, self._max_age)
+            descriptor = CachedDescriptor(self.pool, url, self._max_age, opener)
             self._cache[url] = descriptor
 
         return descriptor.MessageClass(message_type)
