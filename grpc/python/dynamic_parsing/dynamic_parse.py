@@ -32,8 +32,8 @@ def main():
 
     args = parser.parse_args()
 
-    pool = fetch.DescriptorFetcher(5*60)
-    Message = pool.fetch(args.descriptor, args.message_type)
+    pool = fetch.DescriptorCache(5*60)
+    Message = pool.get(args.descriptor, args.message_type)
 
     # Read data from stdin
     data = Message.FromString(sys.stdin.buffer.read())

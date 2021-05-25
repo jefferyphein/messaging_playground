@@ -1,5 +1,6 @@
 import time
 from urllib.parse import urlparse
+from dataclasses import dataclass
 
 import paramiko
 import etcd3
@@ -122,9 +123,12 @@ class CachedDescriptor:
             )
         return MessageClass
 
+@dataclass
+class CacheStats:
+    hits: int = 0
+    misses: int = 0
 
-
-class DescriptorFetcher:
+class DescriptorCache:
     def __init__(self, max_age):
         """
         Fetch protobuf descriptor files, with caching.
@@ -135,8 +139,9 @@ class DescriptorFetcher:
         self._cache = {}
         self.pool = google.protobuf.descriptor_pool.DescriptorPool()
         self._max_age = max_age
+        self.stats = CacheStats()
 
-    def fetch(self, url, message_type, opener=None):
+    def get(self, url, message_type, opener=None):
         """Retrieve the descriptor from the url and return the message class
 
         url - URL path to the serialized proto descriptor
@@ -154,8 +159,11 @@ class DescriptorFetcher:
         descriptor = self._cache.get(url)
 
         if descriptor is None or descriptor.is_expired():
+            self.stats.misses += 1
             print("Fetching update")
             descriptor = CachedDescriptor(self.pool, url, self._max_age, opener)
             self._cache[url] = descriptor
+        else:
+            self.stats.hits += 1
 
         return descriptor.MessageClass(message_type)
