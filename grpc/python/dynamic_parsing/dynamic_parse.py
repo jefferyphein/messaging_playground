@@ -2,6 +2,8 @@
 
 import sys
 import argparse
+import urllib.request
+import io
 
 import google.protobuf
 import google.protobuf.descriptor
@@ -10,7 +12,22 @@ import google.protobuf.descriptor_pool
 import google.protobuf.reflection
 from google.protobuf import message as _message
 
+import etcd3
+
 import fetch
+
+class Etcd3Handler(urllib.request.BaseHandler):
+    def etcd_open(self, req):
+        etcd = etcd3.client(req.host)
+        path = req.selector.strip('/')
+        res,meta = etcd.get(path)
+        data = io.BytesIO()
+        data.write(res)
+        data.seek(0)
+        return urllib.request.addinfourl(data, meta, req.full_url)
+
+opener = urllib.request.build_opener(Etcd3Handler())
+urllib.request.install_opener(opener)
 
 def parse_content_type(content_type):
     parts = [p.strip() for p in content_type.split(';')]
