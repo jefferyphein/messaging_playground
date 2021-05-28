@@ -1,5 +1,6 @@
 import time
 from urllib.parse import urlparse
+from urllib.request import urlopen
 from dataclasses import dataclass
 
 import paramiko
@@ -26,7 +27,7 @@ class CachedDescriptor:
         descriptor as `bytes`
 
         """
-        serialized_pb = self._fetch_descriptor(descriptor_url, opener)
+        serialized_pb = self._open(descriptor_url, opener)
         self._load_descriptor(pool, serialized_pb)
         self.creation_time = time.monotonic()
         self.pool = pool
@@ -35,14 +36,14 @@ class CachedDescriptor:
 
         self._msg_classes = {}
 
-    def _fetch_descriptor(self, url, opener=None):
+    def _open(self, url, opener=None):
         """Download the descriptor file from the URL"""
         scheme,netloc,path,params,query,fragment = urlparse(url)
         if opener is None:
             try:
                 opener = getattr(self, '_fetch_%s'%scheme)
             except AttributeError:
-                raise ValueError("Don't know how to fetch '%s'"%scheme)
+                opener = self._fetch_unknown
         serialized_pb = opener(url)
         return serialized_pb
 
@@ -54,7 +55,7 @@ class CachedDescriptor:
 
     @staticmethod
     def _fetch_http(url):
-        response = urllib.request.urlopen(url)
+        response = urlopen(url)
         return response.read()
 
     @staticmethod
@@ -67,12 +68,11 @@ class CachedDescriptor:
             with sftp.open(path, 'r') as f:
                 return f.read()
 
-    def _fetch_etcd(self, url):
-        etcd = etcd3.client()
-        scheme,netloc,path,params,query,fragment = urlparse(url)
-        path = path.strip('/')
-        serialized_pb, _ = etcd.get(path)
-        return serialized_pb
+    # If the method is unknown, assume urllib is setup to handle it
+    @staticmethod
+    def _fetch_unknown(url):
+        response = urlopen(url)
+        return response.fp.read()
 
     @staticmethod
     def _fetch_sftp(url):
