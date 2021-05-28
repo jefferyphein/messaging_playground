@@ -1,0 +1,11 @@
+This is a simple demonstration of a remote graceful shutdown service.
+
+To run, simply run the following two commands in separate windows in any order:
+
+    python service.py
+    python shutdown.py
+
+The service.py script awaits a shutdown command from the shutdown.py script.
+
+The shutdown.py script connects to the shutdown servers and then issues a
+shutdown command.
