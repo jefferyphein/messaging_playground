@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package logging;
+
+message LogMessage{
+  enum LogLevel{
+    DEBUG = 0;
+    INFO = 1;
+    WARNING = 2;
+    ERROR = 3;
+    CRITICAL = 4;
+    
+  }
+  LogLevel level = 1;
+  int64 utc_timestamp = 2;
+  string msg = 3;
+  int64 pid = 4;
+  int64 thread = 5;
+
+  message LogLocation{
+    string file = 1;
+    int32 line_number = 2;
+    string function = 3;
+  }
+  optional LogLocation location = 7;
+  
+}
+
+service Logger {
+  rpc WriteLog(LogMessage) returns (google.protobuf.Empty) {}
+}
