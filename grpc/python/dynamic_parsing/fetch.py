@@ -1,4 +1,5 @@
 import time
+import hashlib
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ class CachedDescriptor:
 
         """
         serialized_pb = self._open(descriptor_url, opener)
+        self._digest = hashlib.sha256(serialized_pb).hashdigest()
         self._load_descriptor(pool, serialized_pb)
         self.creation_time = time.monotonic()
         self.pool = pool
@@ -35,6 +37,10 @@ class CachedDescriptor:
         self._max_age = max_age
 
         self._msg_classes = {}
+
+    def digest(self):
+        return self._digest
+
 
     def _open(self, url, opener=None):
         """Download the descriptor file from the URL"""
@@ -91,8 +97,18 @@ class CachedDescriptor:
         "Age of the cached object in seconds"
         return time.monotonic() - self.creation_time
 
-    def is_expired(self):
-        return self._is_expired or self.age() > self._max_age
+    def is_expired(self, digest=None):
+        """True if the cache element has expired
+
+        A cache entry is expired if it is either older than it's
+        maximum age or the cached digest value does match the desired
+        one
+
+        """
+
+        return self._is_expired or \
+            (digest is not None and self.digest() != digest) or \
+            (self.age() > self._max_age)
 
     def MessageClass(self, message_type):
         "Class corresponding to the given message type"
@@ -125,7 +141,7 @@ class DescriptorCache:
         self._max_age = max_age
         self.stats = CacheStats()
 
-    def get(self, url, message_type, opener=None):
+    def get(self, url, message_type, digest=None, opener=None):
         """Retrieve the descriptor from the url and return the message class
 
         url - URL path to the serialized proto descriptor
@@ -136,6 +152,10 @@ class DescriptorCache:
         opener - URL opener function will be called with the URL as
         its only argument. Should return the serialized protobuf
         descriptor as `bytes`
+
+        digest - SHA256 hex digest of the desired descriptor. If this
+        does not match the cached digest, the cache will be considered
+        expired regardless of its age
 
         """
         # First check how old the last fetch of that URL is
