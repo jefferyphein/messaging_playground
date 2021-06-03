@@ -16,8 +16,6 @@ message LogMessage{
   LogLevel level = 1;
   int64 utc_timestamp = 2;
   string msg = 3;
-  int64 pid = 4;
-  int64 thread = 5;
 
   message LogLocation{
     string file = 1;
@@ -25,6 +23,15 @@ message LogMessage{
     string function = 3;
   }
   optional LogLocation location = 7;
+
+  message ProcessInformation{
+    string hostname = 1; // Hostname where the process is running
+    repeated string argv = 2; // arguments the process was run with
+    int64 pid = 4; // process ID
+    int64 thread = 5; // thread ID
+  }
+
+  optional ProcessInformation process = 8;
   
 }
 
