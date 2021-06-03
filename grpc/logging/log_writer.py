@@ -18,7 +18,7 @@ class LogLevel(Enum):
 
 class Logger:
     def __init__(self):
-        self.channel = grpc.insecure_channel('localhost:7106407')
+        self.channel = grpc.insecure_channel('unix:///tmp/logging.sock')
         self.stub = message_pb2_grpc.LoggerStub(self.channel)
 
     def write_log(self, level, message):

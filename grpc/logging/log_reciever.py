@@ -17,7 +17,7 @@ class LogReciever(message_pb2_grpc.LoggerServicer):
 async def run():
     port = 7106407
     server = grpc.aio.server(ThreadPoolExecutor())
-    server.add_insecure_port("[::]:%s"%port)
+    server.add_insecure_port("unix:///tmp/logging.sock")
     message_pb2_grpc.add_LoggerServicer_to_server(LogReciever(), server)
     await server.start()
     await server.wait_for_termination()
