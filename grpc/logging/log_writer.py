@@ -23,12 +23,18 @@ class Logger:
 
     def write_log(self, level, message):
 
+        proc = message_pb2.LogMessage.ProcessInformation(
+            hostname=socket.gethostname(),
+            argv=sys.argv,
+            pid=os.getpid(),
+            thread=threading.current_thread().ident,
+        )
+
         req = message_pb2.LogMessage(
             level=level.value,
             utc_timestamp = int(datetime.datetime.utcnow().timestamp()),
             msg=message,
-            pid = os.getpid(),
-            thread=threading.current_thread().ident,
+            process=proc,
         )
         response = self.stub.WriteLog(req)
         return

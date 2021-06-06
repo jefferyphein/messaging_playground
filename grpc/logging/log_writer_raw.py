@@ -6,6 +6,7 @@ import os
 from  enum import Enum
 import random
 import time
+import sys
 
 import lorem
 
@@ -27,12 +28,18 @@ class Logger:
 
     def write_log(self, level, message):
 
+        proc = message_pb2.LogMessage.ProcessInformation(
+            hostname=socket.gethostname(),
+            argv=sys.argv,
+            pid=os.getpid(),
+            thread=threading.current_thread().ident,
+        )
+
         req = message_pb2.LogMessage(
             level=level.value,
             utc_timestamp = int(datetime.datetime.utcnow().timestamp()),
             msg=message,
-            pid = os.getpid(),
-            thread=threading.current_thread().ident,
+            process=proc,
         )
         req_bytes = req.SerializeToString()
         req_len_bytes = struct.pack('!I', len(req_bytes))
