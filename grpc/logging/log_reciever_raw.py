@@ -9,13 +9,14 @@ import message_pb2_grpc
 import message_pb2
 
 async def handle_log_message(reader, writer):
-    print("Waiting on message")
-    len_bytes = await reader.read(struct.calcsize('!I')) # 4 bytes for the length of the message
-    message_len = struct.unpack('!I', len_bytes)[0]
-    print("Found log message with %s bytes"%message_len)
-    msg_bytes = await reader.read(message_len)
-    message = message_pb2.LogMessage.FromString(msg_bytes)
-    print(message)
+    while True:
+        print("Waiting on message")
+        len_bytes = await reader.readexactly(struct.calcsize('!I')) # 4 bytes for the length of the message
+        message_len = struct.unpack('!I', len_bytes)[0]
+        print("Found log message with %s bytes"%message_len)
+        msg_bytes = await reader.readexactly(message_len)
+        message = message_pb2.LogMessage.FromString(msg_bytes)
+        print(message)
 
 
 async def main():
