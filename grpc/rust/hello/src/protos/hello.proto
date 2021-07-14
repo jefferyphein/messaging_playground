@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package sayhello;
+
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply) {}
+  // rpc StreamHello(stream HelloRequest) returns (stream HelloReply);
+  // rpc Capacity (CapacityRequest) returns (CapacityReply);
+}
+
+message HelloRequest {
+  string name = 1;
+}
+
+message HelloReply {
+  string message = 1;
+  int32 pid = 2;
+}
+
+message CapacityRequest{
+}
+
+message CapacityReply{
+  int32 num_workers = 1;
+}
