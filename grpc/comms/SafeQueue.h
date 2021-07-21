@@ -1,31 +1,37 @@
 #pragma once
 
-#include <iostream>
+#include <condition_variable>
 #include <queue>
 #include <mutex>
 
 template<typename T>
 class SafeQueue {
 public:
-    SafeQueue() : q(), m() {}
+    SafeQueue() : q(), m(), c() {}
 
-    void enqueue(T t) {
+    void enqueue(T *t) {
         std::lock_guard<std::mutex> lock(m);
         q.push(t);
     }
 
-    bool try_pop(T& value) {
-        std::unique_lock<std::mutex> lock(m);
-        if (q.empty()) {
-            return false;
+    T *dequeue(int timeout=0) {
+        std::unique_lock<std::mutex> lck(m);
+        if (!c.wait_for(lck, std::chrono::milliseconds(timeout), [this]{ return !q.empty(); })) {
+            return NULL;
         }
 
-        value = q.front();
+        T *value = q.front();
         q.pop();
-        return true;
+
+        return value;
+    }
+
+    size_t size() const {
+        return q.size();
     }
 
 private:
-    std::queue<T> q;
+    std::queue<T*> q;
     mutable std::mutex m;
+    std::condition_variable c;
 };

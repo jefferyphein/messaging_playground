@@ -1,5 +1,5 @@
 CXX = g++
-CPPFLAGS += `pkg-config --cflags protobuf grpc` -std=c++11
+CPPFLAGS += `pkg-config --cflags protobuf grpc` -std=c++11 -g
 
 LDFLAGS += -L/usr/local/lib `pkg-config --libs protobuf grpc++`
 
@@ -18,7 +18,7 @@ vpath %.proto $(PROTOS_PATH)
 
 all: main
 
-main: comms.pb.o comms.grpc.pb.o Sender.o Receiver.o main.o comms.o
+main: comms.pb.o comms.grpc.pb.o EndPoint.o Receiver.o Sender.o main.o comms.o
 	$(CXX) -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
 
 %.o: %.cc %.h SafeQueue.h

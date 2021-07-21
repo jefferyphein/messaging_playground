@@ -19,7 +19,7 @@ public:
     ~Receiver();
 
 private:
-    bool ready_;
+    bool server_built_;
     std::thread thread_;
     std::unique_ptr<grpc::Server> server_;
 };
