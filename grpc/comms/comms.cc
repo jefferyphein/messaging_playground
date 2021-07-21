@@ -20,12 +20,14 @@ typedef struct config_t {
     uint16_t base_port;
     uint32_t receive_thread_count;
     uint32_t send_thread_count;
+    size_t send_batch_dequeue;
 
     config_t() :
         process_name(NULL),
         base_port(50000),
         receive_thread_count(1),
-        send_thread_count(1)
+        send_thread_count(1),
+        send_batch_dequeue(1024)
     {}
 
     void destroy() {
@@ -43,14 +45,12 @@ typedef struct comms_t {
     int lane_count_;
     std::shared_ptr<SafeQueue<comms_packet_t>> send_queue_;
     std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue_;
-    std::thread monitor_thread_;
 
     comms_t(comms_end_point_t *end_point_list, size_t end_point_count, bool is_local, int lane_count) :
             conf_(config_t()),
             lane_count_(lane_count),
             send_queue_(std::make_shared<SafeQueue<comms_packet_t>>()),
-            reap_queue_(std::make_shared<SafeQueue<comms_packet_t>>()),
-            monitor_thread_(&comms_t::monitor_thread, this) {
+            reap_queue_(std::make_shared<SafeQueue<comms_packet_t>>()) {
         this->end_points_.reserve(end_point_count);
         for (size_t index=0; index<end_point_count; index++) {
             this->end_points_.emplace_back(&end_point_list[index]);
@@ -70,25 +70,13 @@ typedef struct comms_t {
     void start_senders() {
         senders_.reserve(this->conf_.send_thread_count);
         for (uint32_t index=0; index<this->conf_.send_thread_count; index++) {
-            this->senders_.emplace_back(new Sender(this->send_queue_, this->reap_queue_, this->end_points_));
+            this->senders_.emplace_back(new Sender(this->send_queue_, this->reap_queue_, this->end_points_, this->conf_.send_batch_dequeue));
         }
     }
 
     void stop_receivers() {
         for (auto& receiver : this->receivers_) {
             receiver->stop();
-        }
-    }
-
-    void monitor_thread() {
-        while (true) {
-            int total = 0;
-            for (auto& sender : senders_) {
-                std::cout << sender->count() << " ";
-                total += sender->count();
-            }
-            std::cout << " = " << total << std::endl;
-            sleep(1);
         }
     }
 
@@ -116,6 +104,9 @@ int comms_configure(comms_t *C, const char *key, const char *value, char **error
     else if (strncmp(key, "send-thread-count", 17) == 0) {
         C->conf_.send_thread_count = (int)atoi(value);
     }
+    else if (strncmp(key, "send-batch-dequeue", 18) == 0) {
+        C->conf_.send_batch_dequeue = (int)atoi(value);
+    }
     return 0;
 }
 
@@ -126,25 +117,19 @@ int comms_start(comms_t *C, char **error) {
 }
 
 int comms_submit(comms_t *C, comms_packet_t **packet_list, size_t packet_count, char **error) {
-    for (size_t index=0; index<packet_count; index++) {
-        C->send_queue_->enqueue(packet_list[index]);
-    }
+    //C->reap_queue_->enqueue_n(packet_list, packet_count);
+    C->send_queue_->enqueue_n(packet_list, packet_count);
+    //for (size_t index=0; index<packet_count; index++) {
+    //    //C->reap_queue_->enqueue(packet_list[index]);
+    //    //int dst = packet_list[index]->dst;
+    //    //C->end_points_[dst].send(packet_list[dst], C->reap_queue_);
+    //    C->send_queue_->enqueue_n(packet_list, index);
+    //}
     return 0;
 }
 
 int comms_reap(comms_t *C, comms_packet_t **packet_list, size_t packet_count, char **error) {
-    size_t index = 0;
-    while (index < packet_count) {
-        comms_packet_t *packet = C->reap_queue_->dequeue();
-
-        if (packet == NULL) {
-            return index;
-        }
-        packet_list[index] = packet;
-        ++index;
-    }
-
-    return index;
+    return C->reap_queue_->dequeue_n(packet_list, packet_count);
 }
 
 int comms_destroy(comms_t *C) {

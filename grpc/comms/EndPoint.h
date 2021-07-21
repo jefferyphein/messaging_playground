@@ -18,6 +18,10 @@ public:
     void send(comms_packet_t *packet,
               std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue) const;
 
+    void send_n(comms_packet_t **packet_list,
+                size_t packet_count,
+                std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue) const;
+
 private:
     std::unique_ptr<comms::Comms::Stub> stub_;
     std::string name_;

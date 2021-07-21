@@ -12,7 +12,7 @@ public:
 
     void run_service(std::string address);
 
-    grpc::Status Send(grpc::ServerContext *context, const comms::Packet *request, comms::PacketResponse *response) override;
+    grpc::Status Send(grpc::ServerContext *context, const comms::Packets *request, comms::PacketResponse *response) override;
 
     void stop();
 

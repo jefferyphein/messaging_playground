@@ -25,7 +25,7 @@ void Receiver::run_service(std::string address) {
     this->server_->Wait();
 }
 
-grpc::Status Receiver::Send(grpc::ServerContext *context, const comms::Packet *request, comms::PacketResponse *response) {
+grpc::Status Receiver::Send(grpc::ServerContext *context, const comms::Packets *request, comms::PacketResponse *response) {
     return grpc::Status::OK;
 }
 
