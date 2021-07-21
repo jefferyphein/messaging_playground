@@ -117,14 +117,7 @@ int comms_start(comms_t *C, char **error) {
 }
 
 int comms_submit(comms_t *C, comms_packet_t **packet_list, size_t packet_count, char **error) {
-    //C->reap_queue_->enqueue_n(packet_list, packet_count);
     C->send_queue_->enqueue_n(packet_list, packet_count);
-    //for (size_t index=0; index<packet_count; index++) {
-    //    //C->reap_queue_->enqueue(packet_list[index]);
-    //    //int dst = packet_list[index]->dst;
-    //    //C->end_points_[dst].send(packet_list[dst], C->reap_queue_);
-    //    C->send_queue_->enqueue_n(packet_list, index);
-    //}
     return 0;
 }
 

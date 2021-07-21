@@ -74,7 +74,7 @@ void submit_packets(comms_t *C, uint32_t receive_thread_count) {
 
         // Generate random payloads.
         for (size_t index=0; index<packet_count; index++) {
-            packets[index]->dst = index % receive_thread_count;
+            packets[index]->dst = rand() % receive_thread_count;
 
             std::generate(begin(data), end(data), std::ref(rbe));
             char *payload = (char*)data.data();
@@ -113,19 +113,19 @@ int main(int argc, char **argv) {
             .address = (char*)"127.0.0.1:12346"
         },
         {
-            .name = (char*)"me[1]",
+            .name = (char*)"me[2]",
             .address = (char*)"127.0.0.1:12347"
         },
         {
-            .name = (char*)"me[1]",
+            .name = (char*)"me[3]",
             .address = (char*)"127.0.0.1:12348"
         },
         {
-            .name = (char*)"me[1]",
+            .name = (char*)"me[4]",
             .address = (char*)"127.0.0.1:12349"
         },
         {
-            .name = (char*)"me[1]",
+            .name = (char*)"me[5]",
             .address = (char*)"127.0.0.1:12350"
         },*/
     };
