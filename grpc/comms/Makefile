@@ -16,15 +16,12 @@ PROTOS_PATH = ./protos
 # Supply missing .proto files from here.
 vpath %.proto $(PROTOS_PATH)
 
-SRCS = $(wildcard *.cc)
-OBJS = ${SRCS:.cc=.o}
-
 all: main
 
-main: comms.pb.o comms.grpc.pb.o $(OBJS)
+main: comms.pb.o comms.grpc.pb.o Sender.o Receiver.o main.o comms.o
 	$(CXX) -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
 
-%.o: %.cc %.h
+%.o: %.cc %.h SafeQueue.h
 	$(CXX) -o $@ -c $< $(CPPFLAGS) $(LDFLAGS)
 
 %.pb.o: %.pb.cc %.pb.h

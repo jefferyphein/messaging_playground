@@ -60,7 +60,7 @@ int comms_create(comms_t **C, comms_end_point_t *end_point_list, size_t end_poin
     return 0;
 }
 
-int comms_configure(comms_t *C, const char *key, const char *value, char *error) {
+int comms_configure(comms_t *C, const char *key, const char *value, char **error) {
     int len = strlen(value);
     if (strncmp(key, "process-name", 12) == 0) {
         C->conf_.process_name = (char*)calloc(len+1, 1);
@@ -72,7 +72,7 @@ int comms_configure(comms_t *C, const char *key, const char *value, char *error)
     return 0;
 }
 
-int comms_start(comms_t *C, char *error) {
+int comms_start(comms_t *C, char **error) {
     if (C->is_local_) {
         C->start_receiver();
     }

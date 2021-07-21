@@ -28,8 +28,8 @@ typedef struct comms_t comms_t;
 
 int comms_create(comms_t **C, comms_end_point_t *end_point_list, size_t end_point_count, int local_index, int lane_count, char **error);
 int comms_destroy(comms_t *C);
-int comms_configure(comms_t *C, const char *key, const char *value, char *error);
-int comms_start(comms_t *C, char *error);
+int comms_configure(comms_t *C, const char *key, const char *value, char **error);
+int comms_start(comms_t *C, char **error);
 int comms_stop_and_destroy(comms_t *C, comms_packet_t **packet_list, size_t packet_count, char **error);
 int comms_submit(comms_t *C, comms_packet_t **packet_list, size_t packet_count, char **error);
 int comms_reap(comms_t *C, comms_packet_t **packet_list, size_t packet_count, char **error);
