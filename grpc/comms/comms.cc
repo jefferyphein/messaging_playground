@@ -34,6 +34,7 @@ typedef struct config_t {
         if (this->process_name) {
             free(this->process_name);
         }
+        memset(this, 0, sizeof(config_t));
     }
 } config_t;
 
@@ -43,12 +44,14 @@ typedef struct comms_t {
     std::vector<std::unique_ptr<Sender>> senders_;
     config_t conf_;
     int lane_count_;
+    std::condition_variable shutdown_;
     std::shared_ptr<SafeQueue<comms_packet_t>> send_queue_;
     std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue_;
 
     comms_t(comms_end_point_t *end_point_list, size_t end_point_count, bool is_local, int lane_count) :
             conf_(config_t()),
             lane_count_(lane_count),
+            shutdown_(),
             send_queue_(std::make_shared<SafeQueue<comms_packet_t>>()),
             reap_queue_(std::make_shared<SafeQueue<comms_packet_t>>()) {
         this->end_points_.reserve(end_point_count);
@@ -74,19 +77,38 @@ typedef struct comms_t {
         }
     }
 
-    void stop_receivers() {
+    void shutdown_receivers() {
         for (auto& receiver : this->receivers_) {
-            receiver->stop();
+            receiver->shutdown();
         }
     }
 
-    void wait() {
+    void shutdown_senders() {
+        for (auto& sender : this->senders_) {
+            sender->shutdown();
+        }
+    }
+
+    int wait() {
+        std::mutex m;
+        std::unique_lock<std::mutex> lck(m);
+        this->shutdown_.wait(lck);
+        return 0;
+    }
+
+    void destroy() {
+        this->conf_.destroy();
     }
 } comms_t;
 
 int comms_create(comms_t **C, comms_end_point_t *end_point_list, size_t end_point_count, int local_index, int lane_count, char **error) {
-    *C = new comms_t(end_point_list, end_point_count, local_index, lane_count);
-    return 0;
+    try {
+        C[0] = new comms_t(end_point_list, end_point_count, local_index, lane_count);
+        return 0;
+    }
+    catch (std::bad_alloc& e) {
+        return 1;
+    }
 }
 
 int comms_configure(comms_t *C, const char *key, const char *value, char **error) {
@@ -125,8 +147,19 @@ int comms_reap(comms_t *C, comms_packet_t **packet_list, size_t packet_count, ch
     return C->reap_queue_->dequeue_n(packet_list, packet_count);
 }
 
-int comms_destroy(comms_t *C) {
-    C->stop_receivers();
-    C->conf_.destroy();
+int comms_wait(comms_t *C, char **error) {
+    return C->wait();
+}
+
+int comms_shutdown(comms_t *C, char **error) {
+    C->shutdown_senders();
+    C->shutdown_receivers();
+    C->shutdown_.notify_all();
+    return 0;
+}
+
+int comms_destroy(comms_t *C, char **error) {
+    C->destroy();
+    delete C;
     return 0;
 }

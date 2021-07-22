@@ -14,7 +14,7 @@ public:
 
     grpc::Status Send(grpc::ServerContext *context, const comms::Packets *request, comms::PacketResponse *response) override;
 
-    void stop();
+    void shutdown();
 
     ~Receiver();
 

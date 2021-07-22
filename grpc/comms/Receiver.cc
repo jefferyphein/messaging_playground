@@ -22,6 +22,7 @@ void Receiver::run_service(std::string address) {
         return;
     }
 
+    // Block until Shutdown() is called.
     this->server_->Wait();
 }
 
@@ -29,7 +30,7 @@ grpc::Status Receiver::Send(grpc::ServerContext *context, const comms::Packets *
     return grpc::Status::OK;
 }
 
-void Receiver::stop() {
+void Receiver::shutdown() {
     // If the thread is not joinable, there's nothing to do here. The thread
     // can only be non-joinable if it failed to start, or it has already been
     // joined.
@@ -39,8 +40,13 @@ void Receiver::stop() {
         std::unique_lock<std::mutex> lck(m);
 
         // Wait until the server is built. This doesn't mean the server has
-        // started, just that BuildAndStart() was called and returned.
-        while (!cv.wait_for(lck, std::chrono::milliseconds(10), [this]{ return this->server_built_; }));
+        // started, just that BuildAndStart() was called and returned. Wake up
+        // once every millisecond to check predicate.
+        //
+        // This ensures the thread launching `run_server` has returned from
+        // BuildAndStart() and set the value of `server_`. Without this barrier,
+        // it is possible to deadlock when attempting to join the thread.
+        while (!cv.wait_for(lck, std::chrono::milliseconds(1), [this]{ return this->server_built_; }));
 
         // Only call Shutdown() if the server is a valid pointer.
         if (this->server_ != nullptr) {
@@ -48,11 +54,11 @@ void Receiver::stop() {
             this->server_ = nullptr;
         }
 
-        // Join the thread once Wait() returns.
+        // Thread will join once the server shuts down gracefully.
         this->thread_.join();
     }
 }
 
 Receiver::~Receiver() {
-    this->stop();
+    this->shutdown();
 }

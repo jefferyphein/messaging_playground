@@ -21,9 +21,9 @@ public:
         }
     }
 
-    T *dequeue(int timeout=0) {
+    T *dequeue(int timeout_ms=0) {
         std::unique_lock<std::mutex> lck(m);
-        if (!c.wait_for(lck, std::chrono::milliseconds(timeout), [this]{ return !q.empty(); })) {
+        if (!c.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return !q.empty(); })) {
             return NULL;
         }
 
@@ -33,8 +33,12 @@ public:
         return value;
     }
 
-    size_t dequeue_n(T **Ts, size_t count, int timeout=0) {
+    size_t dequeue_n(T **Ts, size_t count, int timeout_ms=0) {
         std::unique_lock<std::mutex> lck(m);
+
+        if (!c.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return !q.empty(); })) {
+            return 0;
+        }
 
         int total = std::min(q.size(), count);
         for (size_t index=0; index<total; index++) {

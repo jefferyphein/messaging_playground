@@ -19,6 +19,7 @@ extern "C" {
 #define COMMS_PAYLOAD_SIZE (96)
 
 static int total_packets = 0;
+static std::vector<comms_packet_t*> all_packets;
 
 int create_packet(comms_packet_t **packet, uint32_t capacity) {
     packet[0] = (comms_packet_t*)calloc(1, sizeof(comms_packet_t));
@@ -28,6 +29,7 @@ int create_packet(comms_packet_t **packet, uint32_t capacity) {
 
     packet[0]->capacity = capacity;
     packet[0]->payload = new uint8_t[capacity];
+    all_packets.push_back(packet[0]);
     total_packets++;
 
     return 0;
@@ -37,7 +39,7 @@ void destroy_packet(comms_packet_t *packet) {
     // Clear and free payload.
     memset(packet->payload, 0, packet->capacity);
     if (packet->payload) {
-        delete packet->payload;
+        delete[] packet->payload;
     }
     // Clear and free packet.
     memset(packet, 0, sizeof(comms_packet_t));
@@ -51,14 +53,13 @@ void submit_packets(comms_t *C, uint32_t receive_thread_count) {
 
     std::vector<unsigned char> data(COMMS_PAYLOAD_SIZE);
 
-    using random_bytes_engine = std::independent_bits_engine<
-        std::default_random_engine, CHAR_BIT, unsigned char>;
+    using random_bytes_engine = std::independent_bits_engine<std::default_random_engine, CHAR_BIT, unsigned char>;
     random_bytes_engine rbe;
 
     int total_packets_reaped = 0;
     int total_packets_sent = 0;
     auto start = std::chrono::system_clock::now();
-    while (true) {
+    while (total_packets_sent < 2500000) {
         int reaped_packet_count = comms_reap(C, packets, packet_count, &error);
         total_packets_reaped += reaped_packet_count;
 
@@ -88,6 +89,10 @@ void submit_packets(comms_t *C, uint32_t receive_thread_count) {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+
+    free(packets);
+
+    comms_shutdown(C, &error);
 }
 
 int main(int argc, char **argv) {
@@ -97,7 +102,7 @@ int main(int argc, char **argv) {
     // Configuration data.
     const int receive_thread_count = 1;
     const int send_thread_count = 1;
-    const int base_port = 12345;
+    const int base_port = 50000;
     const int lane_count = 1;
     const int send_batch_dequeue = 2048;
     const int local_index = argc > 1 ? atoi(argv[1]) : 0;
@@ -106,27 +111,27 @@ int main(int argc, char **argv) {
     comms_end_point_t end_point_list[] = {
         {
             .name = (char*)"me[0]",
-            .address = (char*)"127.0.0.1:12345"
+            .address = (char*)"127.0.0.1:50000"
         },
         /*{
             .name = (char*)"me[1]",
-            .address = (char*)"127.0.0.1:12346"
+            .address = (char*)"127.0.0.1:50001"
         },
         {
             .name = (char*)"me[2]",
-            .address = (char*)"127.0.0.1:12347"
+            .address = (char*)"127.0.0.1:50002"
         },
         {
             .name = (char*)"me[3]",
-            .address = (char*)"127.0.0.1:12348"
+            .address = (char*)"127.0.0.1:50003"
         },
         {
             .name = (char*)"me[4]",
-            .address = (char*)"127.0.0.1:12349"
+            .address = (char*)"127.0.0.1:50004"
         },
         {
             .name = (char*)"me[5]",
-            .address = (char*)"127.0.0.1:12350"
+            .address = (char*)"127.0.0.1:50005"
         },*/
     };
     const size_t end_point_count = sizeof(end_point_list) / sizeof(comms_end_point_t);
@@ -147,13 +152,21 @@ int main(int argc, char **argv) {
     // Launch thread to submimt packets.
     std::thread my_thread(submit_packets, C, receive_thread_count);
 
+    // Do not join main thread.
+    comms_wait(C, &error);
+
     // Wait until all packets are processed.
     if (my_thread.joinable()) {
         my_thread.join();
     }
 
-    // Do not join main thread.
-    sleep(1000000);
+    // Destroy the comms object.
+    comms_destroy(C, &error);
+
+    // Destroy all outstanding packets.
+    for (comms_packet_t *packet : all_packets) {
+        destroy_packet(packet);
+    }
 
     return EXIT_SUCCESS;
 }
