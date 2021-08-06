@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package comms;
+
+service Comms {
+    rpc Send(Packets) returns (PacketResponse);
+}
+
+message Packet {
+    int32 src = 1;
+    int32 lane = 2;
+    bytes payload = 3;
+}
+
+message Packets {
+    repeated Packet packet = 1;
+}
+
+message PacketResponse {
+}
