@@ -60,6 +60,13 @@ int comms_catch  (comms_accessor_t *A, comms_packet_t packet_list[], size_t pack
 int comms_release(comms_accessor_t *A, comms_packet_t packet_list[], size_t packet_count, char **error);
 
 typedef struct comms_reader_t comms_reader_t;
+int comms_reader_create(comms_reader_t **R, comms_t *C, const char *address, char **error);
+int comms_reader_start(comms_reader_t *R, char **error);
+int comms_reader_destroy(comms_reader_t *R, char **error);
+
 typedef struct comms_writer_t comms_writer_t;
+int comms_writer_create(comms_writer_t **W, comms_t *C, char **error);
+int comms_writer_start(comms_writer_t *W, char **error);
+int comms_writer_destroy(comms_writer_t *W, char **error);
 
 #endif // __COMMS_H_

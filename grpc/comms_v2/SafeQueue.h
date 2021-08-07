@@ -14,10 +14,10 @@ public:
         q.push(t);
     }
 
-    void enqueue_n(const std::vector<T>& Ts) {
+    void enqueue_n(const T t_list[], size_t count) {
         std::lock_guard<std::mutex> lock(m);
-        for (const auto& t : Ts) {
-            q.push(t);
+        for (size_t index=0; index<count; index++) {
+            q.push(t_list[index]);
         }
     }
 
@@ -33,20 +33,20 @@ public:
         return true;
     }
 
-    std::vector<T> dequeue_n(size_t count, int timeout_ms=0) {
+    size_t dequeue_n(T t_list[], size_t count, int timeout_ms=0) {
         std::vector<T> vec;
         std::unique_lock<std::mutex> lck(m);
 
         if (!c.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return !q.empty(); })) {
-            return vec;
+            return 0;
         }
 
         int total = std::min(q.size(), count);
         for (size_t index=0; index<total; index++) {
-            vec.push_back(q.front());
+            t_list[index] = q.front();
             q.pop();
         }
-        return vec;
+        return total;
     }
 
     size_t size() const {

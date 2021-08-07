@@ -3,7 +3,7 @@
 extern "C" {
 #include "comms.h"
 }
-#include "comms_impl.hh"
+#include "comms_impl.h"
 
 comms_accessor_t::comms_accessor_t(comms_t *C)
         : C_(C)
@@ -28,6 +28,12 @@ int comms_accessor_t::submit_n(comms_packet_t packet_list[],
         }
     }
 
+    return 0;
+}
+
+int comms_accessor_t::release_n(comms_packet_t packet_list[],
+                                size_t packet_count) {
+    C_->end_points_[0].release_n(packet_list, packet_count);
     return 0;
 }
 

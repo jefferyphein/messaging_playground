@@ -6,9 +6,9 @@
 extern "C" {
 #include "comms.h"
 }
-#include "comms_impl.hh"
+#include "comms_impl.h"
 
-#define COMMS_SHORT_CIRCUIT (0)
+#define COMMS_SHORT_CIRCUIT (1)
 
 void comms_set_error(char **error, const char *str) {
     int len = strlen(str);
@@ -19,6 +19,10 @@ void comms_set_error(char **error, const char *str) {
 config_t::config_t()
     : process_name(NULL)
     , accessor_buffer_size(1024)
+    , writer_buffer_size(1024)
+    , reader_buffer_size(1024)
+    , writer_retry_count(25)
+    , writer_retry_delay(100)
 {}
 
 void config_t::destroy() {
@@ -49,6 +53,7 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
         if (COMMS_SHORT_CIRCUIT and &end_point_list[index] == this_end_point) {
             // For the local end point, short circuit the catch/reap queues.
             this->end_points_.emplace_back(&end_point_list[index],
+                                           index,
                                            this->catch_queue_,      // submit
                                            this->reap_queue_,       // reap
                                            this->catch_queue_,      // catch
@@ -58,6 +63,7 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
             // For remote end points, we submit/reap and catch/release
             // without a short circuit.
             this->end_points_.emplace_back(&end_point_list[index],
+                                           index,
                                            this->submit_queue_,     // submit
                                            this->reap_queue_,       // reap
                                            this->catch_queue_,      // catch
@@ -104,6 +110,18 @@ int comms_configure(comms_t *C,
     }
     else if (strncmp(key, "accessor-buffer-size", 20) == 0) {
         C->conf_.accessor_buffer_size = (size_t)atoi(value);
+    }
+    else if (strncmp(key, "writer-buffer-size", 18) == 0) {
+        C->conf_.writer_buffer_size = (size_t)atoi(value);
+    }
+    else if (strncmp(key, "reader-buffer-size", 18) == 0) {
+        C->conf_.reader_buffer_size = (size_t)atoi(value);
+    }
+    else if (strncmp(key, "writer-retry-count", 18) == 0) {
+        C->conf_.writer_retry_count = (size_t)atoi(value);
+    }
+    else if (strncmp(key, "writer-retry-delay", 18) == 0) {
+        C->conf_.writer_retry_delay = (size_t)atoi(value);
     }
     return 0;
 }
@@ -172,6 +190,28 @@ int comms_submit(comms_accessor_t *A,
     }
 
     A->submit_n(packet_list, packet_count);
+    return packet_count;
+}
+
+int comms_reap(comms_accessor_t *A,
+               comms_packet_t packet_list[],
+               size_t packet_count,
+               char **error) {
+    return A->C_->reap_queue_->dequeue_n(packet_list, packet_count);
+}
+
+int comms_catch(comms_accessor_t *A,
+                comms_packet_t packet_list[],
+                size_t packet_count,
+                char **error) {
+    return A->C_->catch_queue_->dequeue_n(packet_list, packet_count, 1);
+}
+
+int comms_release(comms_accessor_t *A,
+                  comms_packet_t packet_list[],
+                  size_t packet_count,
+                  char **error) {
+    A->release_n(packet_list, packet_count);
     return 0;
 }
 
