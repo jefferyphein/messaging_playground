@@ -10,7 +10,6 @@ comms_reader_t::comms_reader_t(comms_t *C, const char *address)
         , address_(address)
         , service_()
         , server_(nullptr)
-        , server_built_(false)
 {}
 
 int comms_reader_create(comms_reader_t **R, comms_t *C, const char *address, char **error) {
@@ -31,7 +30,6 @@ int comms_reader_start(comms_reader_t *R, char **error) {
     builder.AddListeningPort(R->address_, grpc::InsecureServerCredentials());
     builder.RegisterService(&R->service_);
     R->server_ = builder.BuildAndStart();
-    R->server_built_ = true;
 
     if (R->server_ == nullptr) {
         std::stringstream ss;

@@ -89,7 +89,6 @@ typedef struct comms_reader_t {
     const char *address_;
     ReaderServiceImpl service_;
     std::unique_ptr<grpc::Server> server_;
-    std::atomic_bool server_built_;
 
     comms_reader_t(comms_t *C, const char *address);
 } comms_reader_t;
