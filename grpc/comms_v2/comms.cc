@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "comms_impl.h"
 
-#define COMMS_SHORT_CIRCUIT (1)
+#define COMMS_SHORT_CIRCUIT (0)
 
 void comms_set_error(char **error, const char *str) {
     int len = strlen(str);
@@ -42,7 +42,6 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
     , started_(false)
     , shutting_down_(false)
     , shutdown_(false)
-    , shutdown_cv_()
     , submit_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
     , reap_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
     , catch_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
@@ -72,9 +71,56 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
     }
 }
 
-void comms_t::wait_for_shutdown() {
+void comms_t::start() {
+    std::unique_lock<std::mutex> lck(started_mtx_);
+    started_ = true;
+    started_cv_.notify_all();
+}
+
+void comms_t::shutdown() {
+    std::unique_lock<std::mutex> lck(shutting_down_mtx_);
+    shutting_down_ = true;
+    shutting_down_cv_.notify_all();
+}
+
+bool comms_t::wait_for_start(double timeout) {
+    std::unique_lock<std::mutex> lck(started_mtx_);
+
+    if (started_) return true;
+
+    if (timeout == 0.0) {
+        started_cv_.wait(lck);
+        return started_;
+    }
+
+    if (timeout > 0.0) {
+        // Convert seconds to milliseconds.
+        int timeout_ms = static_cast<int>(timeout * 1000);
+        started_cv_.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return this->started_; });
+        return started_;
+    }
+
+    return started_;
+}
+
+bool comms_t::wait_for_shutdown(double timeout) {
     std::unique_lock<std::mutex> lck(shutdown_mtx_);
-    shutdown_cv_.wait(lck);
+
+    if (shutdown_) return true;
+
+    if (timeout == 0.0) {
+        shutdown_cv_.wait(lck);
+        return shutdown_;
+    }
+
+    if (timeout > 0.0) {
+        // Convert seconds to milliseconds.
+        int timeout_ms = static_cast<int>(timeout * 1000);
+        shutdown_cv_.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return this->shutdown_; });
+        return shutdown_;
+    }
+
+    return shutdown_;
 }
 
 void comms_t::destroy() {
@@ -139,34 +185,14 @@ int comms_destroy(comms_t *C,
 
 int comms_start(comms_t *C,
                 char **error) {
-    C->started_ = true;
+    C->start();
     return 0;
 }
 
 int comms_wait_for_start(comms_t *C,
                          double timeout,
                          char **error) {
-    std::mutex mtx;
-    std::unique_lock<std::mutex> lck(mtx);
-    std::condition_variable cv;
-
-    // Wait until started is set.
-    if (timeout == 0.0) {
-        // Wake up every 5 milliseconds to check if we've started.
-        while (!cv.wait_for(lck, std::chrono::milliseconds(5), [C]{ return static_cast<bool>(C->started_); }));
-        return 0;
-    }
-
-    bool started;
-    if (timeout > 0.0) {
-        // Convert seconds to milliseconds.
-        int timeout_ms = static_cast<int>(timeout * 1000);
-
-        started = cv.wait_for(lck, std::chrono::milliseconds(timeout_ms), [C]{ return static_cast<bool>(C->started_); });
-    }
-    else {
-        started = C->started_;
-    }
+    bool started = C->wait_for_start(timeout);
 
     // Set error string if comms layer hasn't started.
     if (not started) {
@@ -176,6 +202,21 @@ int comms_wait_for_start(comms_t *C,
     }
 
     return started ? 0 : 1;
+}
+
+int comms_wait_for_shutdown(comms_t *C,
+                            double timeout,
+                            char **error) {
+    bool shutdown = C->wait_for_shutdown(timeout);
+
+    // Set error string if comms layer hasn't shut down yet.
+    if (not shutdown) {
+        std::stringstream ss;
+        ss << "Comms layer was not shut down.";
+        comms_set_error(error, ss.str().c_str());
+    }
+
+    return shutdown ? 0 : 1;
 }
 
 int comms_submit(comms_accessor_t *A,
@@ -215,43 +256,8 @@ int comms_release(comms_accessor_t *A,
     return 0;
 }
 
-int comms_wait_for_shutdown(comms_t *C,
-                            double timeout,
-                            char **error) {
-    // If we're already shut down, nothing to do here.
-    if (C->shutdown_) {
-        return 0;
-    }
-
-    // Wait until comms layer has completely shut down.
-    if (timeout == 0.0) {
-        C->wait_for_shutdown();
-        return 0;
-    }
-
-    // Wait for shutdown, or a specified timeout.
-    if (timeout > 0.0) {
-        // Convert seconds into milliseconds.
-        int timeout_ms = static_cast<int>(timeout * 1000);
-
-        std::unique_lock<std::mutex> lck(C->shutdown_mtx_);
-        C->shutdown_cv_.wait_for(lck, std::chrono::milliseconds(timeout_ms));
-    }
-
-    // Set error string if comms layer hasn't shut down yet.
-    if (not C->shutdown_) {
-        std::stringstream ss;
-        ss << "Comms layer has not shut down yet.";
-        comms_set_error(error, ss.str().c_str());
-        return 1;
-    }
-
-    return 0;
-}
-
 int comms_shutdown(comms_t *C,
                    char **error) {
-    C->shutting_down_ = true;
+    C->shutdown();
     return 0;
 }
-

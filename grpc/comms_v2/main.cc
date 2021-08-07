@@ -64,10 +64,14 @@ void writer_thread(comms_t *C) {
     COMMS_HANDLE_ERROR(rc, error);
 }
 
-int catch_and_release_thread(comms_accessor_t *A) {
+int catch_and_release_thread(comms_accessor_t *A, comms_t *C) {
     char *error = NULL;
+    int rc;
     const size_t packet_count = 1024;
     comms_packet_t packet_list[packet_count];
+
+    rc = comms_wait_for_start(C, 0.0, &error);
+    COMMS_HANDLE_ERROR(rc, error);
 
     while (true) {
         int num_caught = comms_catch(A, packet_list, packet_count, &error);
@@ -115,7 +119,7 @@ int main(int argc, char **argv) {
     // Launch reader/writer threads.
     std::thread reader(reader_thread, C, "[::]:50000");
     std::thread writer(writer_thread, C);
-    std::thread catch_and_release(catch_and_release_thread, A);
+    std::thread catch_and_release(catch_and_release_thread, A, C);
 
     // Start the comms layer.
     rc = comms_start(C, &error);
@@ -159,7 +163,7 @@ int main(int argc, char **argv) {
     }
 
     // Only use existing packets from this point forward.
-    while (total_submitted < 1<<20) {
+    while (true) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);
         if (num_reaped == 0) continue;

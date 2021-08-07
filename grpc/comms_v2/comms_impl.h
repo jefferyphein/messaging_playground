@@ -27,11 +27,19 @@ typedef struct config_t {
 typedef struct comms_t {
     config_t conf_;
     int lane_count_;
-    std::atomic_bool started_;
-    std::atomic_bool shutting_down_;
+
+    bool started_;
+    std::mutex started_mtx_;
+    std::condition_variable started_cv_;
+
+    bool shutting_down_;
+    std::mutex shutting_down_mtx_;
+    std::condition_variable shutting_down_cv_;
+
     bool shutdown_;
     std::mutex shutdown_mtx_;
     std::condition_variable shutdown_cv_;
+
     std::shared_ptr<SafeQueue<comms_packet_t>> submit_queue_;
     std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue_;
     std::shared_ptr<SafeQueue<comms_packet_t>> catch_queue_;
@@ -42,7 +50,10 @@ typedef struct comms_t {
             size_t end_point_count,
             comms_end_point_t *this_end_point,
             int lane_count);
-    void wait_for_shutdown();
+    void start();
+    bool wait_for_start(double timeout);
+    bool wait_for_shutdown(double timeout);
+    void shutdown();
     void destroy();
 } comms_t;
 
