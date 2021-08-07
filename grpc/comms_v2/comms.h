@@ -42,18 +42,15 @@ typedef struct comms_packet_t {
 } comms_packet_t;
 
 typedef struct comms_t comms_t;
-
 int comms_create(comms_t **C, comms_end_point_t *this_end_point, comms_end_point_t *end_point_list, size_t end_point_count, int lane_count, char **error);
 int comms_configure(comms_t *C, const char *key, const char *value, char **error);
-
 int comms_start(comms_t *C, char **error);
 int comms_wait_for_start(comms_t *C, double timeout, char **error);
-int comms_shutdown(comms_t *C, char **error);
 int comms_wait_for_shutdown(comms_t *C, double timeout, char **error);
+int comms_shutdown(comms_t *C, char **error);
 int comms_destroy(comms_t *C, char **error);
 
 typedef struct comms_accessor_t comms_accessor_t;
-
 int comms_accessor_create(comms_accessor_t **A, comms_t *C, int lane, char **error);
 int comms_accessor_destroy(comms_accessor_t *A, char **error);
 
@@ -61,5 +58,8 @@ int comms_submit (comms_accessor_t *A, comms_packet_t packet_list[], size_t pack
 int comms_reap   (comms_accessor_t *A, comms_packet_t packet_list[], size_t packet_count, char **error);
 int comms_catch  (comms_accessor_t *A, comms_packet_t packet_list[], size_t packet_count, char **error);
 int comms_release(comms_accessor_t *A, comms_packet_t packet_list[], size_t packet_count, char **error);
+
+typedef struct comms_reader_t comms_reader_t;
+typedef struct comms_writer_t comms_writer_t;
 
 #endif // __COMMS_H_

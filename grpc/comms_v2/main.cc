@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     }
 
     // Wait until shutdown command is issued.
-    rc = comms_wait_for_shutdown(C, 0.5, &error);
+    rc = comms_wait_for_shutdown(C, 0.0, &error);
     COMMS_HANDLE_ERROR(rc, error);
 
     // Destroy accessor.
