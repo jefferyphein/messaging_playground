@@ -18,7 +18,7 @@ vpath %.proto $(PROTOS_PATH)
 
 all: main
 
-main: comms.pb.o comms.grpc.pb.o EndPoint.o main.o comms.o comms_accessor.o comms_writer.o comms_reader.o
+main: comms.pb.o comms.grpc.pb.o EndPoint.o main.o comms.o comms_accessor.o comms_receiver.o comms_writer.o comms_reader.o
 	$(CXX) -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
 
 %.o: %.cc SafeQueue.h EndPoint.h comms.h comms_impl.h

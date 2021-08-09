@@ -18,11 +18,14 @@ void comms_set_error(char **error, const char *str) {
 
 config_t::config_t()
     : process_name(NULL)
+    , base_port(0)
     , accessor_buffer_size(1024)
     , writer_buffer_size(1024)
     , reader_buffer_size(1024)
     , writer_retry_count(25)
     , writer_retry_delay(100)
+    , writer_thread_count(1)
+    , reader_thread_count(1)
 {}
 
 void config_t::destroy() {
@@ -42,6 +45,7 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
     , started_(false)
     , shutting_down_(false)
     , shutdown_(false)
+    , writers_()
     , submit_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
     , reap_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
     , catch_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
@@ -72,6 +76,23 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
 }
 
 void comms_t::start() {
+    for (uint32_t index=0; index<conf_.reader_thread_count; index++) {
+        auto reader = std::make_shared<comms_reader_t>(this);
+        readers_.push_back(reader);
+        reader->start();
+    }
+
+    std::stringstream addr;
+    addr << "[::]:" << conf_.base_port;
+    receiver_ = std::make_shared<comms_receiver_t>(readers_);
+    receiver_->start(addr.str());
+
+    for (uint32_t index=0; index<conf_.writer_thread_count; index++) {
+        auto writer = std::make_shared<comms_writer_t>(this);
+        writers_.push_back(writer);
+        writer->start(receiver_);
+    }
+
     std::unique_lock<std::mutex> lck(started_mtx_);
     started_ = true;
     started_cv_.notify_all();
@@ -84,6 +105,15 @@ void comms_t::shutdown() {
 }
 
 bool comms_t::wait_for_start(double timeout) {
+    // Wait for all writers to start.
+    for (auto& writer : writers_) {
+        std::unique_lock<std::mutex> lck(writer->started_mtx_);
+
+        if (not writer->started_) {
+            writer->started_cv_.wait(lck);
+        }
+    }
+
     std::unique_lock<std::mutex> lck(started_mtx_);
 
     if (started_) return true;
@@ -154,6 +184,9 @@ int comms_configure(comms_t *C,
         C->conf_.process_name = (char*)calloc(len+1, sizeof(char));
         strncpy(C->conf_.process_name, value, len+1);
     }
+    else if (strncmp(key, "base-port", 9) == 0) {
+        C->conf_.base_port = (uint16_t)atoi(value);
+    }
     else if (strncmp(key, "accessor-buffer-size", 20) == 0) {
         C->conf_.accessor_buffer_size = (size_t)atoi(value);
     }
@@ -168,6 +201,12 @@ int comms_configure(comms_t *C,
     }
     else if (strncmp(key, "writer-retry-delay", 18) == 0) {
         C->conf_.writer_retry_delay = (size_t)atoi(value);
+    }
+    else if (strncmp(key, "writer-thread-count", 19) == 0) {
+        C->conf_.writer_thread_count = (uint32_t)atoi(value);
+    }
+    else if (strncmp(key, "reader-thread-count", 19) == 0) {
+        C->conf_.reader_thread_count = (uint32_t)atoi(value);
     }
     return 0;
 }

@@ -28,41 +28,41 @@ extern "C" {
 #define COMMS_PAYLOAD_SIZE (96)
 #define COMMS_CHECKPOINT_DELTA (0.25)
 
-void reader_thread(comms_t *C, const char *address) {
-    comms_reader_t *R = NULL;
-    char *error = NULL;
-    int rc;
-
-    rc = comms_wait_for_start(C, 0.0, &error);
-    COMMS_HANDLE_ERROR(rc, error);
-
-    rc = comms_reader_create(&R, C, address, &error);
-    COMMS_HANDLE_ERROR(rc, error);
-
-    rc = comms_reader_start(R, &error);
-    COMMS_HANDLE_ERROR(rc, error);
-
-    rc = comms_reader_destroy(R, &error);
-    COMMS_HANDLE_ERROR(rc, error);
-}
-
-void writer_thread(comms_t *C) {
-    comms_writer_t *W = NULL;
-    char *error = NULL;
-    int rc;
-
-    rc = comms_wait_for_start(C, 0.0, &error);
-    COMMS_HANDLE_ERROR(rc, error);
-
-    rc = comms_writer_create(&W, C, &error);
-    COMMS_HANDLE_ERROR(rc, error);
-
-    rc = comms_writer_start(W, &error);
-    COMMS_HANDLE_ERROR(rc, error);
-
-    rc = comms_writer_destroy(W, &error);
-    COMMS_HANDLE_ERROR(rc, error);
-}
+//void reader_thread(comms_t *C, const char *address) {
+//    comms_reader_t *R = NULL;
+//    char *error = NULL;
+//    int rc;
+//
+//    rc = comms_wait_for_start(C, 0.0, &error);
+//    COMMS_HANDLE_ERROR(rc, error);
+//
+//    rc = comms_reader_create(&R, C, address, &error);
+//    COMMS_HANDLE_ERROR(rc, error);
+//
+//    rc = comms_reader_start(R, &error);
+//    COMMS_HANDLE_ERROR(rc, error);
+//
+//    rc = comms_reader_destroy(R, &error);
+//    COMMS_HANDLE_ERROR(rc, error);
+//}
+//
+//void writer_thread(comms_t *C) {
+//    comms_writer_t *W = NULL;
+//    char *error = NULL;
+//    int rc;
+//
+//    rc = comms_wait_for_start(C, 0.0, &error);
+//    COMMS_HANDLE_ERROR(rc, error);
+//
+//    rc = comms_writer_create(&W, C, &error);
+//    COMMS_HANDLE_ERROR(rc, error);
+//
+//    rc = comms_writer_start(W, &error);
+//    COMMS_HANDLE_ERROR(rc, error);
+//
+//    rc = comms_writer_destroy(W, &error);
+//    COMMS_HANDLE_ERROR(rc, error);
+//}
 
 int catch_and_release_thread(comms_accessor_t *A, comms_t *C) {
     char *error = NULL;
@@ -103,6 +103,8 @@ int main(int argc, char **argv) {
     // Configure comms.
     rc = comms_configure(C, "process-name", "driver", &error);
     COMMS_HANDLE_ERROR(rc, error);
+    rc = comms_configure(C, "base-port", "50000", &error);
+    COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "accessor-buffer-size", "1024", &error);
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "writer-buffer-size", "1024", &error);
@@ -111,14 +113,18 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "writer-retry-delay", "100", &error);
     COMMS_HANDLE_ERROR(rc, error);
+    rc = comms_configure(C, "writer-thread-count", "1", &error);
+    COMMS_HANDLE_ERROR(rc, error);
+    rc = comms_configure(C, "reader-thread-count", "1", &error);
+    COMMS_HANDLE_ERROR(rc, error);
 
     // Create accessor.
     rc = comms_accessor_create(&A, C, 0, &error);
     COMMS_HANDLE_ERROR(rc, error);
 
     // Launch reader/writer threads.
-    std::thread reader(reader_thread, C, "[::]:50000");
-    std::thread writer(writer_thread, C);
+    //std::thread reader(reader_thread, C, "[::]:50000");
+    //std::thread writer(writer_thread, C);
     std::thread catch_and_release(catch_and_release_thread, A, C);
 
     // Start the comms layer.

@@ -5,50 +5,47 @@ extern "C" {
 }
 #include "comms_impl.h"
 
-comms_reader_t::comms_reader_t(comms_t *C, const char *address)
+comms_reader_t::comms_reader_t(comms_t *C)
         : C_(C)
-        , address_(address)
-        , service_()
-        , server_(nullptr)
+        , started_(false)
+        , shutting_down_(false)
+        , shutdown_(false)
+        , thread_(nullptr)
 {}
 
-int comms_reader_create(comms_reader_t **R, comms_t *C, const char *address, char **error) {
-    try {
-        R[0] = new comms_reader_t(C, address);
-        return 0;
-    }
-    catch (std::bad_alloc& e) {
-        std::stringstream ss;
-        ss << "Unable to allocate comms reader";
-        comms_set_error(error, ss.str().c_str());
-        return 1;
-    }
+void comms_reader_t::start() {
+    thread_ = std::make_shared<std::thread>(&comms_reader_t::run, this);
 }
 
-int comms_reader_start(comms_reader_t *R, char **error) {
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(R->address_, grpc::InsecureServerCredentials());
-    builder.RegisterService(&R->service_);
-    R->server_ = builder.BuildAndStart();
-
-    if (R->server_ == nullptr) {
-        std::stringstream ss;
-        ss << "Unable to start server at " << R->address_;
-        comms_set_error(error, ss.str().c_str());
-        return 1;
+void comms_reader_t::run() {
+    {
+        std::unique_lock<std::mutex> lck(started_mtx_);
+        started_ = true;
+        started_cv_.notify_all();
     }
 
-    R->server_->Wait();
+    while (true) {
+        if (shutting_down_) break;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
 
-    return 0;
+    // Acquire shutdown mutex and notify shutdown.
+    std::unique_lock<std::mutex> lck(shutdown_mtx_);
+    shutdown_ = true;
+    shutdown_cv_.notify_all();
 }
 
-int comms_reader_destroy(comms_reader_t *R, char **error) {
-    return 0;
+void comms_reader_t::wait_for_start() {
+    std::unique_lock<std::mutex> lck(started_mtx_);
+    if (started_) return;
+    started_cv_.wait(lck);
 }
 
-grpc::Status ReaderServiceImpl::Send(grpc::ServerContext *context,
-                                     const comms::Packets *request,
-                                     comms::PacketResponse *response) {
-    return grpc::Status::OK;
+void comms_reader_t::shutdown() {
+    shutting_down_ = true;
+}
+
+void comms_reader_t::wait_for_shutdown() {
+    std::unique_lock<std::mutex> lck(shutdown_mtx_);
+    shutdown_cv_.wait(lck);
 }
