@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "comms_impl.h"
 
-#define COMMS_SHORT_CIRCUIT (0)
+#define COMMS_SHORT_CIRCUIT (1)
 
 void comms_set_error(char **error, const char *str) {
     int len = strlen(str);

@@ -141,8 +141,8 @@ int main(int argc, char **argv) {
 
     // Stack-allocate some packets and submit them.
     const size_t packet_count = 1<<10;
-    int total_submitted = 0;
-    int total_reaped = 0;
+    long total_submitted = 0;
+    long total_reaped = 0;
     for (size_t n=0; n<24; n++) {
         comms_packet_t packet_list[packet_count];
         for (size_t index=0; index<packet_count; index++) {
@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
         std::chrono::duration<double> diff = now-start;
         double elapsed = diff.count();
         if (elapsed >= checkpoint) {
-            printf("packets reaped: %8d, rate: %.4f\n", total_reaped, (total_reaped / elapsed));
+            printf("packets reaped: %8ld, rate: %.4f\n", total_reaped, (total_reaped / elapsed));
             checkpoint = elapsed+COMMS_CHECKPOINT_DELTA;
         }
     }
