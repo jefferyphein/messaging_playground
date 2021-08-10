@@ -181,7 +181,6 @@ typedef struct comms_accessor_t {
                  size_t packet_count);
     int release_n(comms_packet_t packet_list[],
                   size_t packet_count);
-    int flush_to_end_point(const comms_packet_t buffer[], size_t packet_count, EndPoint& end_point);
 } comms_accessor_t;
 
 #endif // __COMMS_IMPL_H_

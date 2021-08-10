@@ -45,6 +45,7 @@ void comms_writer_t::run(std::shared_ptr<comms_receiver_t> receiver) {
         for (size_t index=0; index<num_packets; index++) {
             packet_list[index].reap.rc = ok ? 0 : 1;
         }
+
         C_->reap_queue_->enqueue_bulk(packet_list, num_packets);
     }
 

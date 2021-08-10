@@ -47,9 +47,9 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
     , shutting_down_(false)
     , shutdown_(false)
     , writers_()
-    , submit_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
-    , reap_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
-    , catch_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
+    , submit_queue_ (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
+    , reap_queue_   (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
+    , catch_queue_  (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
     , release_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
 {
     this->end_points_.reserve(end_point_count);
