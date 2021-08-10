@@ -9,7 +9,7 @@
 #include <grpcpp/grpcpp.h>
 
 #include "EndPoint.h"
-#include "SafeQueue.h"
+#include "concurrentqueue.h"
 
 #define COMMS_ASYNC_SERVICE (1)
 
@@ -152,10 +152,11 @@ typedef struct comms_t {
     std::vector<std::shared_ptr<comms_writer_t>> writers_;
     std::vector<std::thread> writer_threads_;
 
-    std::shared_ptr<SafeQueue<comms_packet_t>> submit_queue_;
-    std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue_;
-    std::shared_ptr<SafeQueue<comms_packet_t>> catch_queue_;
-    std::shared_ptr<SafeQueue<comms_packet_t>> release_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> submit_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> reap_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> catch_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> release_queue_;
+
     std::vector<EndPoint> end_points_;
 
     comms_t(comms_end_point_t *end_point_list,

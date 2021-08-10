@@ -8,10 +8,10 @@
 
 EndPoint::EndPoint(comms_end_point_t *end_point,
                    size_t end_point_id,
-                   std::shared_ptr<SafeQueue<comms_packet_t>> submit_queue,
-                   std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue,
-                   std::shared_ptr<SafeQueue<comms_packet_t>> catch_queue,
-                   std::shared_ptr<SafeQueue<comms_packet_t>> release_queue,
+                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> submit_queue,
+                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> reap_queue,
+                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> catch_queue,
+                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> release_queue,
                    uint32_t arena_start_block_depth)
         : name_(end_point->name)
         , address_(end_point->address)
@@ -29,13 +29,13 @@ void EndPoint::set_arena_start_block_size(size_t block_size) {
 }
 
 size_t EndPoint::submit_n(const std::vector<comms_packet_t>& packet_list) {
-    submit_queue_->enqueue_n(reinterpret_cast<const comms_packet_t*>(packet_list.data()), packet_list.size());
+    submit_queue_->enqueue_bulk(reinterpret_cast<const comms_packet_t*>(packet_list.data()), packet_list.size());
 
     return 0;
 }
 
 size_t EndPoint::release_n(comms_packet_t packet_list[], size_t packet_count) {
-    release_queue_->enqueue_n(packet_list, packet_count);
+    release_queue_->enqueue_bulk(packet_list, packet_count);
     return 0;
 }
 
@@ -67,7 +67,7 @@ bool EndPoint::transmit_n(const comms_packet_t packet_list[],
         std::this_thread::sleep_for(std::chrono::milliseconds(retry_delay));
     }
 
-    reap_queue_->enqueue_n(packet_list, packet_count);
+    reap_queue_->enqueue_bulk(packet_list, packet_count);
 
     if (!status.ok()) {
         std::cerr << "[" << name_ << "] RPC failed: error " << status.error_code()

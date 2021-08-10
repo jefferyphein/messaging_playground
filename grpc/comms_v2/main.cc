@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
     }
 
     // Only use existing packets from this point forward.
-    while (total_reaped < 25000000) {
+    while (total_reaped < 250000000) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);
         if (num_reaped == 0) continue;

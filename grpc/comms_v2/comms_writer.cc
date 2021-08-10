@@ -35,7 +35,7 @@ void comms_writer_t::run(std::shared_ptr<comms_receiver_t> receiver) {
 
     comms_packet_t packet_list[packet_count];
     while (true) {
-        size_t num_packets = C_->submit_queue_->dequeue_n(packet_list, packet_count, 1);
+        size_t num_packets = C_->submit_queue_->try_dequeue_bulk(packet_list, packet_count);
         if (num_packets == 0) {
             if (shutting_down_) break;
             continue;
@@ -45,7 +45,7 @@ void comms_writer_t::run(std::shared_ptr<comms_receiver_t> receiver) {
         for (size_t index=0; index<num_packets; index++) {
             packet_list[index].reap.rc = ok ? 0 : 1;
         }
-        C_->reap_queue_->enqueue_n(packet_list, num_packets);
+        C_->reap_queue_->enqueue_bulk(packet_list, num_packets);
     }
 
     // Acquire shutdown mutex and notify shutdown.

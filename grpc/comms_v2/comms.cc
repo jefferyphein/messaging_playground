@@ -47,10 +47,10 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
     , shutting_down_(false)
     , shutdown_(false)
     , writers_()
-    , submit_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
-    , reap_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
-    , catch_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
-    , release_queue_(std::make_shared<SafeQueue<comms_packet_t>>())
+    , submit_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
+    , reap_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
+    , catch_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
+    , release_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
 {
     this->end_points_.reserve(end_point_count);
     for (size_t index=0; index<end_point_count; index++) {
@@ -323,7 +323,7 @@ int comms_reap(comms_accessor_t *A,
         return -1;
     }
 
-    return A->C_->reap_queue_->dequeue_n(packet_list, packet_count);
+    return A->C_->reap_queue_->try_dequeue_bulk(packet_list, packet_count);
 }
 
 int comms_catch(comms_accessor_t *A,
@@ -343,7 +343,7 @@ int comms_catch(comms_accessor_t *A,
         comms_set_error(error, ss.str().c_str());
         return -1;
     }
-    return A->C_->catch_queue_->dequeue_n(packet_list, packet_count, 1);
+    return A->C_->catch_queue_->try_dequeue_bulk(packet_list, packet_count);
 }
 
 int comms_release(comms_accessor_t *A,
