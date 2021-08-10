@@ -46,6 +46,9 @@ void comms_receiver_t::run(std::string address) {
 }
 
 void comms_receiver_t::wait_for_start() {
+    if (shutdown_) return;
+    if (shutting_down_) return;
+
     std::unique_lock<std::mutex> lck(started_mtx_);
     if (started_) return;
     started_cv_.wait(lck);
@@ -62,10 +65,12 @@ void comms_receiver_t::shutdown() {
 void comms_receiver_t::wait_for_shutdown() {
     std::unique_lock<std::mutex> lck(shutdown_mtx_);
     shutdown_cv_.wait(lck);
+    thread_->join();
 }
 
 grpc::Status CommsServiceImpl::Send(grpc::ServerContext *context,
                                     const comms::Packets *request,
                                     comms::PacketResponse *response) {
+    // TODO: Forward incoming request to a reader.
     return grpc::Status::OK;
 }

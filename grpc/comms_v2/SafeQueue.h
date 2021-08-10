@@ -7,7 +7,11 @@
 template<typename T>
 class SafeQueue {
 public:
-    SafeQueue() : q(), m(), c() {}
+    SafeQueue()
+            : q()
+            , m()
+            , c()
+    {}
 
     void enqueue(T& t) {
         std::lock_guard<std::mutex> lock(m);

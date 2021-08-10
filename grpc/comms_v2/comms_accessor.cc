@@ -19,7 +19,7 @@ comms_accessor_t::comms_accessor_t(comms_t *C)
 // QUESTION: Can we rearrange `packet_list`? It's not "const" and so
 // rearranging it should be valid.
 int comms_accessor_t::submit_n(comms_packet_t packet_list[],
-             size_t packet_count) {
+                               size_t packet_count) {
     for (size_t index=0; index<packet_count; index++) {
         uint32_t dst = packet_list[index].submit.dst;
         packet_buffer_[dst].push_back(packet_list[index]);
@@ -70,6 +70,7 @@ int comms_accessor_create(comms_accessor_t **A,
 
 int comms_accessor_destroy(comms_accessor_t *A,
                            char **error) {
+    A->C_ = NULL;
     delete A;
     return 0;
 }

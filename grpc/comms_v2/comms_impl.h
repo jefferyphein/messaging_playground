@@ -112,9 +112,6 @@ typedef struct comms_t {
     std::condition_variable started_cv_;
 
     bool shutting_down_;
-    std::mutex shutting_down_mtx_;
-    std::condition_variable shutting_down_cv_;
-
     bool shutdown_;
     std::mutex shutdown_mtx_;
     std::condition_variable shutdown_cv_;

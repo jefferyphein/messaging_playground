@@ -26,6 +26,7 @@ void comms_reader_t::run() {
 
     while (true) {
         if (shutting_down_) break;
+        // TODO: Do something.
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
@@ -48,4 +49,5 @@ void comms_reader_t::shutdown() {
 void comms_reader_t::wait_for_shutdown() {
     std::unique_lock<std::mutex> lck(shutdown_mtx_);
     shutdown_cv_.wait(lck);
+    thread_->join();
 }

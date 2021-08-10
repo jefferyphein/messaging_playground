@@ -28,43 +28,7 @@ extern "C" {
 #define COMMS_PAYLOAD_SIZE (96)
 #define COMMS_CHECKPOINT_DELTA (0.25)
 
-//void reader_thread(comms_t *C, const char *address) {
-//    comms_reader_t *R = NULL;
-//    char *error = NULL;
-//    int rc;
-//
-//    rc = comms_wait_for_start(C, 0.0, &error);
-//    COMMS_HANDLE_ERROR(rc, error);
-//
-//    rc = comms_reader_create(&R, C, address, &error);
-//    COMMS_HANDLE_ERROR(rc, error);
-//
-//    rc = comms_reader_start(R, &error);
-//    COMMS_HANDLE_ERROR(rc, error);
-//
-//    rc = comms_reader_destroy(R, &error);
-//    COMMS_HANDLE_ERROR(rc, error);
-//}
-//
-//void writer_thread(comms_t *C) {
-//    comms_writer_t *W = NULL;
-//    char *error = NULL;
-//    int rc;
-//
-//    rc = comms_wait_for_start(C, 0.0, &error);
-//    COMMS_HANDLE_ERROR(rc, error);
-//
-//    rc = comms_writer_create(&W, C, &error);
-//    COMMS_HANDLE_ERROR(rc, error);
-//
-//    rc = comms_writer_start(W, &error);
-//    COMMS_HANDLE_ERROR(rc, error);
-//
-//    rc = comms_writer_destroy(W, &error);
-//    COMMS_HANDLE_ERROR(rc, error);
-//}
-
-int catch_and_release_thread(comms_accessor_t *A, comms_t *C) {
+void catch_and_release_thread(comms_accessor_t *A, comms_t *C) {
     char *error = NULL;
     int rc;
     const size_t packet_count = 1024;
@@ -75,6 +39,10 @@ int catch_and_release_thread(comms_accessor_t *A, comms_t *C) {
 
     while (true) {
         int num_caught = comms_catch(A, packet_list, packet_count, &error);
+        if (num_caught < 0) {
+            free(error); // Make valgrind happy.
+            break;
+        }
         if (num_caught == 0) continue;
 
         comms_release(A, packet_list, num_caught, &error);
@@ -123,8 +91,6 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
 
     // Launch reader/writer threads.
-    //std::thread reader(reader_thread, C, "[::]:50000");
-    //std::thread writer(writer_thread, C);
     std::thread catch_and_release(catch_and_release_thread, A, C);
 
     // Start the comms layer.
@@ -145,6 +111,8 @@ int main(int argc, char **argv) {
     auto start = std::chrono::system_clock::now();
     double checkpoint = COMMS_CHECKPOINT_DELTA;
 
+    std::vector<uint8_t*> payloads;
+
     // Stack-allocate some packets and submit them.
     const size_t packet_count = 1<<10;
     long total_submitted = 0;
@@ -157,6 +125,7 @@ int main(int argc, char **argv) {
             packet_list[index].submit.tag = 0;
 
             uint8_t *payload = (unsigned char*)calloc(COMMS_PAYLOAD_SIZE, sizeof(unsigned char));
+            payloads.push_back(payload);
             memcpy(payload, data.data(), sizeof(uint8_t));
             packet_list[index].payload = payload;
         }
@@ -169,10 +138,13 @@ int main(int argc, char **argv) {
     }
 
     // Only use existing packets from this point forward.
-    while (true) {
+    while (total_reaped < 250000000) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);
         if (num_reaped == 0) continue;
+        if (num_reaped < 0) {
+            COMMS_HANDLE_ERROR(num_reaped, error);
+        }
         total_reaped += num_reaped;
 
         for (size_t index=0; index<num_reaped; index++) {
@@ -196,25 +168,35 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Reap all packets and free them.
+    // Reap all packets.
     int packets_freed = 0;
     while (total_reaped < total_submitted) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);
         if (num_reaped == 0) continue;
-        total_reaped += num_reaped;
-
-        for (size_t index=0; index<num_reaped; index++) {
-            free(packet_list[index].payload);
-            packets_freed++;
+        if (num_reaped < 0) {
+            COMMS_HANDLE_ERROR(num_reaped, error);
         }
+        total_reaped += num_reaped;
     }
 
+    // Verify all submitted packets were reaped.
+    assert( total_submitted == total_reaped );
+
+    // Shut down the comms layer.
     comms_shutdown(C, &error);
 
     // Wait until shutdown command is issued.
     rc = comms_wait_for_shutdown(C, 0.0, &error);
     COMMS_HANDLE_ERROR(rc, error);
+
+    // Join the catch/release thread.
+    catch_and_release.join();
+
+    // Free all payloads.
+    for (uint8_t *payload : payloads) {
+        free(payload);
+    }
 
     // Destroy accessor.
     rc = comms_accessor_destroy(A, &error);

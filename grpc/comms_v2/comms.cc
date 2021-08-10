@@ -76,17 +76,20 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
 }
 
 void comms_t::start() {
+    // First, start all readers.
     for (uint32_t index=0; index<conf_.reader_thread_count; index++) {
         auto reader = std::make_shared<comms_reader_t>(this);
         readers_.push_back(reader);
         reader->start();
     }
 
+    // Next, start the receiver.
     std::stringstream addr;
     addr << "[::]:" << conf_.base_port;
     receiver_ = std::make_shared<comms_receiver_t>(readers_);
     receiver_->start(addr.str());
 
+    // Lastly, start the writers.
     for (uint32_t index=0; index<conf_.writer_thread_count; index++) {
         auto writer = std::make_shared<comms_writer_t>(this);
         writers_.push_back(writer);
@@ -99,9 +102,29 @@ void comms_t::start() {
 }
 
 void comms_t::shutdown() {
-    std::unique_lock<std::mutex> lck(shutting_down_mtx_);
+    // Indicate intention to shut down.
     shutting_down_ = true;
-    shutting_down_cv_.notify_all();
+
+    // First, shut down all writers.
+    for (auto writer : writers_) {
+        writer->shutdown();
+        writer->wait_for_shutdown();
+    }
+
+    // Next, shut down the receiver.
+    receiver_->shutdown();
+    receiver_->wait_for_shutdown();
+
+    // Lastly, shut down all readers.
+    for (auto reader : readers_) {
+        reader->shutdown();
+        reader->wait_for_shutdown();
+    }
+
+    // Acquire shutdown mutex and notify shutdown.
+    std::unique_lock<std::mutex> lck(shutdown_mtx_);
+    shutdown_ = true;
+    shutdown_cv_.notify_all();
 }
 
 bool comms_t::wait_for_start(double timeout) {
@@ -262,6 +285,13 @@ int comms_submit(comms_accessor_t *A,
                  comms_packet_t packet_list[],
                  size_t packet_count,
                  char **error) {
+    if (A->C_ == NULL) {
+        std::stringstream ss;
+        ss << "Cannot submit packets, accessor is not bound to a comms object.";
+        comms_set_error(error, ss.str().c_str());
+        return -1;
+    }
+
     if (A->C_->shutting_down_) {
         std::stringstream ss;
         ss << "Cannot submit packets while comms layer is shutting down.";
@@ -277,6 +307,13 @@ int comms_reap(comms_accessor_t *A,
                comms_packet_t packet_list[],
                size_t packet_count,
                char **error) {
+    if (A->C_ == NULL) {
+        std::stringstream ss;
+        ss << "Cannot reap packets, accessor not bound to a comms object.";
+        comms_set_error(error, ss.str().c_str());
+        return -1;
+    }
+
     return A->C_->reap_queue_->dequeue_n(packet_list, packet_count);
 }
 
@@ -284,6 +321,19 @@ int comms_catch(comms_accessor_t *A,
                 comms_packet_t packet_list[],
                 size_t packet_count,
                 char **error) {
+    if (A->C_ == NULL) {
+        std::stringstream ss;
+        ss << "Cannot catch packets, accessor not bound to a comms object.";
+        comms_set_error(error, ss.str().c_str());
+        return -1;
+    }
+
+    if (A->C_->shutdown_) {
+        std::stringstream ss;
+        ss << "Cannot catch packets, comms layer is shut down.";
+        comms_set_error(error, ss.str().c_str());
+        return -1;
+    }
     return A->C_->catch_queue_->dequeue_n(packet_list, packet_count, 1);
 }
 
