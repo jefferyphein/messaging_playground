@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "comms_impl.h"
 
-#define COMMS_SHORT_CIRCUIT (0)
+#define COMMS_SHORT_CIRCUIT (1)
 
 void comms_set_error(char **error, const char *str) {
     int len = strlen(str);
@@ -155,7 +155,7 @@ bool comms_t::wait_for_start(double timeout) {
     if (timeout > 0.0) {
         // Convert seconds to milliseconds.
         int timeout_ms = static_cast<int>(timeout * 1000);
-        started_cv_.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return this->started_; });
+        started_cv_.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return this->started_.load(); });
         return started_;
     }
 
@@ -175,7 +175,7 @@ bool comms_t::wait_for_shutdown(double timeout) {
     if (timeout > 0.0) {
         // Convert seconds to milliseconds.
         int timeout_ms = static_cast<int>(timeout * 1000);
-        shutdown_cv_.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return this->shutdown_; });
+        shutdown_cv_.wait_for(lck, std::chrono::milliseconds(timeout_ms), [this]{ return this->shutdown_.load(); });
         return shutdown_;
     }
 

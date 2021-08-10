@@ -34,12 +34,12 @@ typedef struct config_t {
 typedef struct comms_reader_t {
     comms_t *C_;
 
-    bool started_;
+    std::atomic_bool started_;
     std::mutex started_mtx_;
     std::condition_variable started_cv_;
 
-    bool shutting_down_;
-    bool shutdown_;
+    std::atomic_bool shutting_down_;
+    std::atomic_bool shutdown_;
     std::mutex shutdown_mtx_;
     std::condition_variable shutdown_cv_;
 
@@ -61,12 +61,12 @@ public:
 };
 
 typedef struct comms_receiver_t {
-    bool started_;
+    std::atomic_bool started_;
     std::mutex started_mtx_;
     std::condition_variable started_cv_;
 
-    bool shutting_down_;
-    bool shutdown_;
+    std::atomic_bool shutting_down_;
+    std::atomic_bool shutdown_;
     std::mutex shutdown_mtx_;
     std::condition_variable shutdown_cv_;
 
@@ -113,12 +113,12 @@ typedef struct comms_receiver_t {
 typedef struct comms_writer_t {
     comms_t *C_;
 
-    bool started_;
+    std::atomic_bool started_;
     std::mutex started_mtx_;
     std::condition_variable started_cv_;
 
-    bool shutting_down_;
-    bool shutdown_;
+    std::atomic_bool shutting_down_;
+    std::atomic_bool shutdown_;
     std::mutex shutdown_mtx_;
     std::condition_variable shutdown_cv_;
 
@@ -135,12 +135,12 @@ typedef struct comms_t {
     config_t conf_;
     int lane_count_;
 
-    bool started_;
+    std::atomic_bool started_;
     std::mutex started_mtx_;
     std::condition_variable started_cv_;
 
-    bool shutting_down_;
-    bool shutdown_;
+    std::atomic_bool shutting_down_;
+    std::atomic_bool shutdown_;
     std::mutex shutdown_mtx_;
     std::condition_variable shutdown_cv_;
 

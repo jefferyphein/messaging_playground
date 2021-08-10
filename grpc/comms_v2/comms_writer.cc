@@ -37,7 +37,9 @@ void comms_writer_t::run(std::shared_ptr<comms_receiver_t> receiver) {
     while (true) {
         size_t num_packets = C_->submit_queue_->try_dequeue_bulk(packet_list, packet_count);
         if (num_packets == 0) {
-            if (shutting_down_) break;
+            if (shutting_down_) {
+                break;
+            }
             continue;
         }
 
@@ -61,6 +63,8 @@ void comms_writer_t::shutdown() {
 
 void comms_writer_t::wait_for_shutdown() {
     std::unique_lock<std::mutex> lck(shutdown_mtx_);
-    shutdown_cv_.wait(lck);
+    if (not shutdown_) {
+        shutdown_cv_.wait(lck);
+    }
     thread_->join();
 }

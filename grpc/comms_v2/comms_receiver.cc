@@ -86,18 +86,20 @@ void comms_receiver_t::shutdown() {
     if (shutdown_) return;
     if (shutting_down_) return;
 
-    shutting_down_ = true;
     server_->Shutdown();
 #if COMMS_ASYNC_SERVICE
     // The completion queue must always be shut down *after* the server.
     // https://grpc.io/docs/languages/cpp/async/#shutting-down-the-server
     cq_->Shutdown();
 #endif
+    shutting_down_ = true;
 }
 
 void comms_receiver_t::wait_for_shutdown() {
     std::unique_lock<std::mutex> lck(shutdown_mtx_);
-    shutdown_cv_.wait(lck);
+    if (not shutdown_) {
+        shutdown_cv_.wait(lck);
+    }
     thread_->join();
 }
 

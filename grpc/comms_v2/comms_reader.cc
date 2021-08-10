@@ -48,6 +48,8 @@ void comms_reader_t::shutdown() {
 
 void comms_reader_t::wait_for_shutdown() {
     std::unique_lock<std::mutex> lck(shutdown_mtx_);
-    shutdown_cv_.wait(lck);
+    if (not shutdown_) {
+        shutdown_cv_.wait(lck);
+    }
     thread_->join();
 }
