@@ -1,5 +1,5 @@
 CXX = g++
-CPPFLAGS += `pkg-config --cflags protobuf grpc` -std=c++11 -g -O3
+CPPFLAGS += `pkg-config --cflags protobuf grpc` -std=c++11 -g -O3 -fPIC
 
 LDFLAGS += -L/usr/local/lib `pkg-config --libs protobuf grpc++`
 
@@ -18,8 +18,11 @@ vpath %.proto $(PROTOS_PATH)
 
 all: main
 
-main: comms.pb.o comms.grpc.pb.o EndPoint.o main.o comms.o comms_accessor.o comms_receiver.o comms_writer.o comms_reader.o
-	$(CXX) -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
+main: main.o libcomms.so
+	$(CXX) -o $@ $< -lcomms -L. $(CPPFLAGS) $(LDFLAGS)
+
+libcomms.so: comms.pb.o comms.grpc.pb.o EndPoint.o comms.o comms_accessor.o comms_receiver.o comms_writer.o comms_reader.o
+	$(CXX) -shared -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
 
 %.o: %.cc concurrentqueue.h EndPoint.h comms.h comms_impl.h
 	$(CXX) -o $@ -c $< $(CPPFLAGS) $(LDFLAGS)
@@ -36,4 +39,4 @@ main: comms.pb.o comms.grpc.pb.o EndPoint.o main.o comms.o comms_accessor.o comm
 	$(PROTOC) -I $(PROTOS_PATH) --grpc_out=. --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN_PATH) $<
 
 clean:
-	-rm -f *.o *.pb.cc *.pb.h main
+	-rm -f *.o *.pb.cc *.pb.h main libcomms.so
