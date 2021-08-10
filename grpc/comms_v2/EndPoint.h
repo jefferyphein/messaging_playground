@@ -25,7 +25,7 @@ public:
 
     void set_arena_start_block_size(size_t block_size);
 
-    size_t submit_n(const std::vector<comms_packet_t>& packet_list);
+    size_t submit_n(const comms_packet_t packet_list[], size_t packet_count);
     size_t release_n(comms_packet_t packet_list[], size_t packet_count);
     bool transmit_n(const comms_packet_t packet_list[],
                     size_t packet_count,

@@ -28,8 +28,8 @@ void EndPoint::set_arena_start_block_size(size_t block_size) {
     arena_start_block_size_ = block_size;
 }
 
-size_t EndPoint::submit_n(const std::vector<comms_packet_t>& packet_list) {
-    submit_queue_->enqueue_bulk(reinterpret_cast<const comms_packet_t*>(packet_list.data()), packet_list.size());
+size_t EndPoint::submit_n(const comms_packet_t packet_list[], size_t packet_count) {
+    submit_queue_->enqueue_bulk(packet_list, packet_count);
 
     return 0;
 }

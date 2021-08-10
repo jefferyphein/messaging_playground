@@ -24,7 +24,9 @@ int comms_accessor_t::submit_n(comms_packet_t packet_list[],
         uint32_t dst = packet_list[index].submit.dst;
         packet_buffer_[dst].push_back(packet_list[index]);
         if (packet_buffer_[dst].size() == buffer_size_) {
-            this->flush_to_end_point(packet_buffer_[dst], C_->end_points_[dst]);
+            const comms_packet_t *packet_list = reinterpret_cast<const comms_packet_t*>(packet_buffer_[dst].data());
+            this->flush_to_end_point(packet_list, buffer_size_, C_->end_points_[dst]);
+            packet_buffer_[dst].clear();
         }
     }
 
@@ -37,9 +39,8 @@ int comms_accessor_t::release_n(comms_packet_t packet_list[],
     return 0;
 }
 
-int comms_accessor_t::flush_to_end_point(std::vector<comms_packet_t>& buffer, EndPoint& end_point) {
-    end_point.submit_n(buffer);
-    buffer.clear();
+int comms_accessor_t::flush_to_end_point(const comms_packet_t buffer[], size_t packet_count, EndPoint& end_point) {
+    end_point.submit_n(buffer, packet_count);
     return 0;
 }
 

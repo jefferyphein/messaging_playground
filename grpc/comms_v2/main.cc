@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "writer-retry-delay", "100", &error);
     COMMS_HANDLE_ERROR(rc, error);
-    rc = comms_configure(C, "writer-thread-count", "1", &error);
+    rc = comms_configure(C, "writer-thread-count", "2", &error);
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "reader-thread-count", "1", &error);
     COMMS_HANDLE_ERROR(rc, error);
@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
     }
 
     // Only use existing packets from this point forward.
-    while (total_reaped < 250000000) {
+    while (total_reaped < 50000000) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);
         if (num_reaped == 0) continue;
