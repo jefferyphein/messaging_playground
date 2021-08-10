@@ -22,13 +22,13 @@ void comms_receiver_t::run(std::string address) {
     grpc::ServerBuilder builder;
     builder.AddListeningPort(address, grpc::InsecureServerCredentials());
     builder.RegisterService(&service_);
+#if COMMS_ASYNC_SERVICE
+    cq_ = builder.AddCompletionQueue();
+#endif
     server_ = builder.BuildAndStart();
 
     if (server_ == nullptr) {
-        //std::stringstream ss;
-        //ss << "Unable to start server at " << address_;
-        //comms_set_error(error, ss.str().c_str());
-        return;
+        goto shutdown;
     }
 
     {
@@ -37,8 +37,36 @@ void comms_receiver_t::run(std::string address) {
         started_cv_.notify_all();
     }
 
-    server_->Wait();
+#if COMMS_ASYNC_SERVICE
+    new CallData(&service_, cq_.get());
+    void *tag;
+    bool ok;
+    while (true) {
+        bool got_event = cq_->Next(&tag, &ok);
 
+        // If `got_event` is false, the queue is fully drained and shut down.
+        if (not got_event) {
+            break;
+        }
+
+        // Proceed on the tag (pointer to a CallData object) only if we
+        // successfully read an event.
+        if (ok) {
+            static_cast<CallData*>(tag)->Proceed();
+        }
+        else {
+            // Server was shut down before this call was matched to an
+            // incoming RPC. You win some, you lose some.
+            delete static_cast<CallData*>(tag);
+        }
+    }
+#endif
+
+#if not COMMS_ASYNC_SERVICE
+    server_->Wait();
+#endif
+
+shutdown:
     // Acquire shutdown lock and notify shutdown.
     std::unique_lock<std::mutex> lck(shutdown_mtx_);
     shutdown_ = true;
@@ -58,8 +86,13 @@ void comms_receiver_t::shutdown() {
     if (shutdown_) return;
     if (shutting_down_) return;
 
-    server_->Shutdown();
     shutting_down_ = true;
+    server_->Shutdown();
+#if COMMS_ASYNC_SERVICE
+    // The completion queue must always be shut down *after* the server.
+    // https://grpc.io/docs/languages/cpp/async/#shutting-down-the-server
+    cq_->Shutdown();
+#endif
 }
 
 void comms_receiver_t::wait_for_shutdown() {
@@ -68,9 +101,38 @@ void comms_receiver_t::wait_for_shutdown() {
     thread_->join();
 }
 
-grpc::Status CommsServiceImpl::Send(grpc::ServerContext *context,
-                                    const comms::Packets *request,
-                                    comms::PacketResponse *response) {
+#if COMMS_ASYNC_SERVICE
+comms_receiver_t::CallData::CallData(comms::Comms::AsyncService *service,
+                                     grpc::ServerCompletionQueue *cq)
+        : service_(service)
+        , cq_(cq)
+        , responder_(&ctx_)
+        , status_(CREATE) {
+    Proceed();
+}
+
+void comms_receiver_t::CallData::Proceed() {
+    if (status_ == CREATE) {
+        status_ = PROCESS;
+        service_->RequestSend(&ctx_, &request_, &responder_, cq_, cq_, this);
+    }
+    else if (status_ == PROCESS) {
+        new CallData(service_, cq_);
+        status_ = FINISH;
+        responder_.Finish(response_, grpc::Status::OK, this);
+    }
+    else {
+        GPR_ASSERT( status_ == FINISH );
+        delete this;
+    }
+}
+#endif
+
+#if not COMMS_ASYNC_SERVICE
+grpc::Status CommsSyncServiceImpl::Send(grpc::ServerContext *context,
+                                        const comms::Packets *request,
+                                        comms::PacketResponse *response) {
     // TODO: Forward incoming request to a reader.
     return grpc::Status::OK;
 }
+#endif

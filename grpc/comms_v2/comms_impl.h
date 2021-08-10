@@ -11,6 +11,8 @@
 #include "EndPoint.h"
 #include "SafeQueue.h"
 
+#define COMMS_ASYNC_SERVICE (1)
+
 void comms_set_error(char **error, const char *str);
 
 typedef struct config_t {
@@ -23,6 +25,7 @@ typedef struct config_t {
     size_t writer_retry_delay;
     uint32_t writer_thread_count;
     uint32_t reader_thread_count;
+    uint32_t arena_start_block_depth;
 
     config_t();
     void destroy();
@@ -50,8 +53,7 @@ typedef struct comms_reader_t {
     void wait_for_shutdown();
 } comms_reader_t;
 
-
-class CommsServiceImpl final : public comms::Comms::Service {
+class CommsSyncServiceImpl final : public comms::Comms::Service {
 public:
     grpc::Status Send(grpc::ServerContext *context,
                       const comms::Packets *request,
@@ -71,8 +73,34 @@ typedef struct comms_receiver_t {
     std::vector<std::shared_ptr<comms_reader_t>> readers_;
 
     std::shared_ptr<std::thread> thread_;
-    CommsServiceImpl service_;
     std::unique_ptr<grpc::Server> server_;
+
+#if COMMS_ASYNC_SERVICE
+    comms::Comms::AsyncService service_;
+    std::unique_ptr<grpc::ServerCompletionQueue> cq_;
+
+    class CallData {
+    public:
+        CallData(comms::Comms::AsyncService *service,
+                 grpc::ServerCompletionQueue *cq);
+
+        void Proceed();
+
+    private:
+        comms::Comms::AsyncService *service_;
+        grpc::ServerCompletionQueue *cq_;
+        grpc::ServerContext ctx_;
+        comms::Packets request_;
+        comms::PacketResponse response_;
+        grpc::ServerAsyncResponseWriter<comms::PacketResponse> responder_;
+        enum CallStatus { CREATE, PROCESS, FINISH };
+        CallStatus status_;
+    };
+#endif
+
+#if not COMMS_ASYNC_SERVICE
+    CommsSyncServiceImpl service_;
+#endif
 
     comms_receiver_t(std::vector<std::shared_ptr<comms_reader_t>>& readers);
     void start(std::string address);

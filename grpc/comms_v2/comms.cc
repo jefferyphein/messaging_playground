@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "comms_impl.h"
 
-#define COMMS_SHORT_CIRCUIT (1)
+#define COMMS_SHORT_CIRCUIT (0)
 
 void comms_set_error(char **error, const char *str) {
     int len = strlen(str);
@@ -26,6 +26,7 @@ config_t::config_t()
     , writer_retry_delay(100)
     , writer_thread_count(1)
     , reader_thread_count(1)
+    , arena_start_block_depth(20)
 {}
 
 void config_t::destroy() {
@@ -76,6 +77,11 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
 }
 
 void comms_t::start() {
+    // Set arena starting block size for all end points.
+    for (auto& end_point : end_points_) {
+        end_point.set_arena_start_block_size(1<<conf_.arena_start_block_depth);
+    }
+
     // First, start all readers.
     for (uint32_t index=0; index<conf_.reader_thread_count; index++) {
         auto reader = std::make_shared<comms_reader_t>(this);
@@ -230,6 +236,9 @@ int comms_configure(comms_t *C,
     }
     else if (strncmp(key, "reader-thread-count", 19) == 0) {
         C->conf_.reader_thread_count = (uint32_t)atoi(value);
+    }
+    else if (strncmp(key, "arena-start-block-depth", 19) == 0) {
+        C->conf_.arena_start_block_depth = (uint32_t)atoi(value);
     }
     return 0;
 }

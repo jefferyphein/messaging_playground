@@ -2,6 +2,9 @@ syntax = "proto3";
 
 package comms;
 
+option cc_enable_arenas = true;
+option optimize_for = LITE_RUNTIME;
+
 service Comms {
     rpc Send(Packets) returns (PacketResponse);
 }

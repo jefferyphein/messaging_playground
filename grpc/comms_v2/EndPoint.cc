@@ -1,5 +1,6 @@
 #include <thread>
 #include <grpcpp/grpcpp.h>
+#include <google/protobuf/arena.h>
 
 #include "comms.grpc.pb.h"
 
@@ -10,7 +11,8 @@ EndPoint::EndPoint(comms_end_point_t *end_point,
                    std::shared_ptr<SafeQueue<comms_packet_t>> submit_queue,
                    std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue,
                    std::shared_ptr<SafeQueue<comms_packet_t>> catch_queue,
-                   std::shared_ptr<SafeQueue<comms_packet_t>> release_queue)
+                   std::shared_ptr<SafeQueue<comms_packet_t>> release_queue,
+                   uint32_t arena_start_block_depth)
         : name_(end_point->name)
         , address_(end_point->address)
         , id_(end_point_id)
@@ -19,7 +21,12 @@ EndPoint::EndPoint(comms_end_point_t *end_point,
         , reap_queue_(reap_queue)
         , catch_queue_(catch_queue)
         , release_queue_(release_queue)
+        , arena_start_block_size_(1<<arena_start_block_depth)
 {}
+
+void EndPoint::set_arena_start_block_size(size_t block_size) {
+    arena_start_block_size_ = block_size;
+}
 
 size_t EndPoint::submit_n(const std::vector<comms_packet_t>& packet_list) {
     submit_queue_->enqueue_n(reinterpret_cast<const comms_packet_t*>(packet_list.data()), packet_list.size());
@@ -36,10 +43,15 @@ bool EndPoint::transmit_n(const comms_packet_t packet_list[],
                           size_t packet_count,
                           size_t retry_count,
                           size_t retry_delay) {
-    comms::Packets packets;
+    google::protobuf::ArenaOptions arena_options;
+    arena_options.start_block_size = arena_start_block_size_;
+    google::protobuf::Arena arena(arena_options);
+    comms::Packets *packets = google::protobuf::Arena::CreateMessage<comms::Packets>(&arena);
+    packets->mutable_packet()->Reserve(packet_count);
+
     for (size_t index=0; index<packet_count; index++) {
         const comms_packet_t *comms_packet = &packet_list[index];
-        auto *packet = packets.add_packet();
+        auto *packet = packets->add_packet();
         packet->set_src(comms_packet->submit.dst);
         packet->set_payload(comms_packet->payload, comms_packet->submit.size);
     }
@@ -49,7 +61,7 @@ bool EndPoint::transmit_n(const comms_packet_t packet_list[],
 
     size_t retry = 0;
     while (retry <= retry_count) {
-        status = send_packets_internal(packets, response);
+        status = send_packets_internal(*packets, response);
         if (status.ok()) break;
         ++retry;
         std::this_thread::sleep_for(std::chrono::milliseconds(retry_delay));

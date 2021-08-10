@@ -85,12 +85,14 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "reader-thread-count", "1", &error);
     COMMS_HANDLE_ERROR(rc, error);
+    rc = comms_configure(C, "arena-start-block-depth", "17", &error);
+    COMMS_HANDLE_ERROR(rc, error);
 
     // Create accessor.
     rc = comms_accessor_create(&A, C, 0, &error);
     COMMS_HANDLE_ERROR(rc, error);
 
-    // Launch reader/writer threads.
+    // Launch catch/release thread.
     std::thread catch_and_release(catch_and_release_thread, A, C);
 
     // Start the comms layer.
@@ -138,7 +140,7 @@ int main(int argc, char **argv) {
     }
 
     // Only use existing packets from this point forward.
-    while (total_reaped < 250000000) {
+    while (total_reaped < 25000000) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);
         if (num_reaped == 0) continue;

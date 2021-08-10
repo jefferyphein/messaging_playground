@@ -20,7 +20,10 @@ public:
              std::shared_ptr<SafeQueue<comms_packet_t>> submit_queue,
              std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue,
              std::shared_ptr<SafeQueue<comms_packet_t>> catch_queue,
-             std::shared_ptr<SafeQueue<comms_packet_t>> release_queue);
+             std::shared_ptr<SafeQueue<comms_packet_t>> release_queue,
+             uint32_t arena_start_block_depth = 1<<20);
+
+    void set_arena_start_block_size(size_t block_size);
 
     size_t submit_n(const std::vector<comms_packet_t>& packet_list);
     size_t release_n(comms_packet_t packet_list[], size_t packet_count);
@@ -38,6 +41,7 @@ private:
     std::shared_ptr<SafeQueue<comms_packet_t>> reap_queue_;
     std::shared_ptr<SafeQueue<comms_packet_t>> catch_queue_;
     std::shared_ptr<SafeQueue<comms_packet_t>> release_queue_;
+    size_t arena_start_block_size_;
 
     grpc::Status send_packets_internal(comms::Packets& packets,
                                        comms::PacketResponse& response);
