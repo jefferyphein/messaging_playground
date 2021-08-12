@@ -21,14 +21,16 @@ EndPoint::EndPoint(comms_end_point_t *end_point,
         , reap_queue_(reap_queue)
         , catch_queue_(catch_queue)
         , release_queue_(release_queue)
-        , arena_start_block_size_(1<<arena_start_block_depth)
-{}
+        , arena_start_block_size_(1<<arena_start_block_depth) {
+}
 
 void EndPoint::set_arena_start_block_size(size_t block_size) {
     arena_start_block_size_ = block_size;
 }
 
-size_t EndPoint::submit_n(const comms_packet_t packet_list[], size_t packet_count) {
+size_t EndPoint::submit_n(const comms_packet_t packet_list[],
+                          size_t packet_count,
+                          int lane) {
     submit_queue_->enqueue_bulk(packet_list, packet_count);
 
     return 0;
@@ -66,8 +68,6 @@ bool EndPoint::transmit_n(const comms_packet_t packet_list[],
         ++retry;
         std::this_thread::sleep_for(std::chrono::milliseconds(retry_delay));
     }
-
-    reap_queue_->enqueue_bulk(packet_list, packet_count);
 
     if (!status.ok()) {
         std::cerr << "[" << name_ << "] RPC failed: error " << status.error_code()

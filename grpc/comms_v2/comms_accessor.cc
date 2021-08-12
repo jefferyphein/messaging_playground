@@ -5,8 +5,9 @@ extern "C" {
 }
 #include "comms_impl.h"
 
-comms_accessor_t::comms_accessor_t(comms_t *C)
+comms_accessor_t::comms_accessor_t(comms_t *C, int lane)
         : C_(C)
+        , lane_(lane)
         , end_point_count_(C->end_points_.size())
         , buffer_size_(C->conf_.accessor_buffer_size)
         , packet_buffer_(C->end_points_.size())
@@ -23,7 +24,7 @@ int comms_accessor_t::submit_n(comms_packet_t packet_list[],
         packet_buffer_[dst].push_back(packet_list[index]);
         if (packet_buffer_[dst].size() == buffer_size_) {
             const comms_packet_t *packet_list = reinterpret_cast<const comms_packet_t*>(packet_buffer_[dst].data());
-            C_->end_points_[dst].submit_n(packet_list, buffer_size_);
+            C_->end_points_[dst].submit_n(packet_list, buffer_size_, lane_);
             packet_buffer_[dst].clear();
         }
     }
@@ -51,7 +52,7 @@ int comms_accessor_create(comms_accessor_t **A,
     }
 
     try {
-        A[0] = new comms_accessor_t(C);
+        A[0] = new comms_accessor_t(C, lane);
         return 0;
     }
     catch (std::bad_alloc& e) {

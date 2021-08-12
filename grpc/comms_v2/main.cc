@@ -28,13 +28,19 @@ extern "C" {
 #define COMMS_PAYLOAD_SIZE (96)
 #define COMMS_CHECKPOINT_DELTA (0.25)
 
-void catch_and_release_thread(comms_accessor_t *A, comms_t *C) {
+void catch_and_release_thread(comms_t *C) {
     char *error = NULL;
+    comms_accessor_t *A = NULL;
     int rc;
-    const size_t packet_count = 1024;
+    const size_t packet_count = 2048;
     comms_packet_t packet_list[packet_count];
 
+    // Wait for comms layer to start.
     rc = comms_wait_for_start(C, 0.0, &error);
+    COMMS_HANDLE_ERROR(rc, error);
+
+    // Create local accessor.
+    rc = comms_accessor_create(&A, C, 0, &error);
     COMMS_HANDLE_ERROR(rc, error);
 
     while (true) {
@@ -47,6 +53,10 @@ void catch_and_release_thread(comms_accessor_t *A, comms_t *C) {
 
         comms_release(A, packet_list, num_caught, &error);
     }
+
+    // Destroy local accessor.
+    rc = comms_accessor_destroy(A, &error);
+    COMMS_HANDLE_ERROR(rc, error);
 }
 
 int main(int argc, char **argv) {
@@ -73,7 +83,7 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "base-port", "50000", &error);
     COMMS_HANDLE_ERROR(rc, error);
-    rc = comms_configure(C, "accessor-buffer-size", "1024", &error);
+    rc = comms_configure(C, "accessor-buffer-size", "2048", &error);
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "writer-buffer-size", "1024", &error);
     COMMS_HANDLE_ERROR(rc, error);
@@ -85,15 +95,11 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "reader-thread-count", "1", &error);
     COMMS_HANDLE_ERROR(rc, error);
-    rc = comms_configure(C, "arena-start-block-depth", "17", &error);
-    COMMS_HANDLE_ERROR(rc, error);
-
-    // Create accessor.
-    rc = comms_accessor_create(&A, C, 0, &error);
+    rc = comms_configure(C, "arena-start-block-depth", "20", &error);
     COMMS_HANDLE_ERROR(rc, error);
 
     // Launch catch/release thread.
-    std::thread catch_and_release(catch_and_release_thread, A, C);
+    std::thread catch_and_release(catch_and_release_thread, C);
 
     // Start the comms layer.
     rc = comms_start(C, &error);
@@ -113,13 +119,18 @@ int main(int argc, char **argv) {
     auto start = std::chrono::system_clock::now();
     double checkpoint = COMMS_CHECKPOINT_DELTA;
 
+    // Track all payloads.
     std::vector<uint8_t*> payloads;
+
+    // Create accessor.
+    rc = comms_accessor_create(&A, C, 0, &error);
+    COMMS_HANDLE_ERROR(rc, error);
 
     // Stack-allocate some packets and submit them.
     const size_t packet_count = 1<<10;
     long total_submitted = 0;
     long total_reaped = 0;
-    for (size_t n=0; n<24; n++) {
+    for (size_t n=0; n<256; n++) {
         comms_packet_t packet_list[packet_count];
         for (size_t index=0; index<packet_count; index++) {
             packet_list[index].submit.size = COMMS_PAYLOAD_SIZE;
@@ -140,7 +151,7 @@ int main(int argc, char **argv) {
     }
 
     // Only use existing packets from this point forward.
-    while (total_reaped < 50000000) {
+    while (total_submitted < 500000000) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);
         if (num_reaped == 0) continue;
@@ -171,7 +182,6 @@ int main(int argc, char **argv) {
     }
 
     // Reap all packets.
-    int packets_freed = 0;
     while (total_reaped < total_submitted) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);

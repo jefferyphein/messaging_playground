@@ -22,7 +22,13 @@ main: main.o libcomms.so
 	$(CXX) -o $@ $< -lcomms -L. $(CPPFLAGS) $(LDFLAGS)
 
 main_hoard: main.o libcomms.so
-	$(CXX) -o $@ $< -lcomms -L. $(CPPFLAGS) $(LDFLAGS) -fno-builtin-malloc -fno-builtin-free -fno-builtin-realloc -lhoard
+	$(CXX) -o $@ $< -lhoard -lcomms -L. $(CPPFLAGS) $(LDFLAGS) -fno-builtin-malloc -fno-builtin-free -fno-builtin-realloc
+
+main_jemalloc: main.o libcomms.so
+	$(CXX) -o $@ $< -ljemalloc -lcomms -L. $(CPPFLAGS) $(LDFLAGS) -fno-builtin-malloc -fno-builtin-free -fno-builtin-realloc
+
+main_mimalloc: main.o libcomms.so
+	$(CXX) -o $@ $< -lmimalloc -lcomms -L. $(CPPFLAGS) $(LDFLAGS) -fno-builtin-malloc -fno-builtin-free -fno-builtin-realloc
 
 libcomms.so: comms.pb.o comms.grpc.pb.o EndPoint.o comms.o comms_accessor.o comms_receiver.o comms_writer.o comms_reader.o
 	$(CXX) -shared -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
@@ -42,4 +48,4 @@ libcomms.so: comms.pb.o comms.grpc.pb.o EndPoint.o comms.o comms_accessor.o comm
 	$(PROTOC) -I $(PROTOS_PATH) --grpc_out=. --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN_PATH) $<
 
 clean:
-	-rm -f *.o *.pb.cc *.pb.h main main_hoard libcomms.so
+	-rm -f *.o *.pb.cc *.pb.h main main_hoard main_jemalloc main_mimalloc libcomms.so

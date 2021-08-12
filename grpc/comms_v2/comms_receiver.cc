@@ -22,7 +22,7 @@ void comms_receiver_t::run(std::string address) {
     grpc::ServerBuilder builder;
     builder.AddListeningPort(address, grpc::InsecureServerCredentials());
     builder.RegisterService(&service_);
-#if COMMS_ASYNC_SERVICE
+#ifdef COMMS_USE_ASYNC_SERVICE
     cq_ = builder.AddCompletionQueue();
 #endif
     server_ = builder.BuildAndStart();
@@ -37,7 +37,7 @@ void comms_receiver_t::run(std::string address) {
         started_cv_.notify_all();
     }
 
-#if COMMS_ASYNC_SERVICE
+#ifdef COMMS_USE_ASYNC_SERVICE
     new CallData(&service_, cq_.get());
     void *tag;
     bool ok;
@@ -60,9 +60,7 @@ void comms_receiver_t::run(std::string address) {
             delete static_cast<CallData*>(tag);
         }
     }
-#endif
-
-#if not COMMS_ASYNC_SERVICE
+#else
     server_->Wait();
 #endif
 
@@ -87,7 +85,7 @@ void comms_receiver_t::shutdown() {
     if (shutting_down_) return;
 
     server_->Shutdown();
-#if COMMS_ASYNC_SERVICE
+#ifdef COMMS_USE_ASYNC_SERVICE
     // The completion queue must always be shut down *after* the server.
     // https://grpc.io/docs/languages/cpp/async/#shutting-down-the-server
     cq_->Shutdown();
@@ -103,7 +101,7 @@ void comms_receiver_t::wait_for_shutdown() {
     thread_->join();
 }
 
-#if COMMS_ASYNC_SERVICE
+#ifdef COMMS_USE_ASYNC_SERVICE
 comms_receiver_t::CallData::CallData(comms::Comms::AsyncService *service,
                                      grpc::ServerCompletionQueue *cq)
         : service_(service)
@@ -128,9 +126,8 @@ void comms_receiver_t::CallData::Proceed() {
         delete this;
     }
 }
-#endif
 
-#if not COMMS_ASYNC_SERVICE
+#else // #ifndef COMMS_USE_ASYNC_SERVICE
 grpc::Status CommsSyncServiceImpl::Send(grpc::ServerContext *context,
                                         const comms::Packets *request,
                                         comms::PacketResponse *response) {

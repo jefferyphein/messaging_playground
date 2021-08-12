@@ -11,7 +11,9 @@
 #include "EndPoint.h"
 #include "concurrentqueue.h"
 
-#define COMMS_ASYNC_SERVICE (1)
+#define COMMS_SHORT_CIRCUIT (0)
+#define COMMS_USE_ASYNC_SERVICE
+#define COMMS_USE_TOKENS
 
 void comms_set_error(char **error, const char *str);
 
@@ -75,7 +77,7 @@ typedef struct comms_receiver_t {
     std::shared_ptr<std::thread> thread_;
     std::unique_ptr<grpc::Server> server_;
 
-#if COMMS_ASYNC_SERVICE
+#ifdef COMMS_USE_ASYNC_SERVICE
     comms::Comms::AsyncService service_;
     std::unique_ptr<grpc::ServerCompletionQueue> cq_;
 
@@ -96,9 +98,7 @@ typedef struct comms_receiver_t {
         enum CallStatus { CREATE, PROCESS, FINISH };
         CallStatus status_;
     };
-#endif
-
-#if not COMMS_ASYNC_SERVICE
+#else
     CommsSyncServiceImpl service_;
 #endif
 
@@ -123,6 +123,11 @@ typedef struct comms_writer_t {
     std::condition_variable shutdown_cv_;
 
     std::shared_ptr<std::thread> thread_;
+
+#ifdef COMMS_USE_TOKENS
+    moodycamel::ConsumerToken consumer_submit_token_;
+    moodycamel::ProducerToken producer_reap_token_;
+#endif
 
     comms_writer_t(comms_t *C);
     void start(std::shared_ptr<comms_receiver_t> receiver);
@@ -172,11 +177,13 @@ typedef struct comms_t {
 
 typedef struct comms_accessor_t {
     comms_t *C_;
+    int lane_;
     size_t end_point_count_;
     size_t buffer_size_;
     std::vector<std::vector<comms_packet_t>> packet_buffer_;
 
-    comms_accessor_t(comms_t *C);
+    comms_accessor_t(comms_t *C,
+                     int lane);
     int submit_n(comms_packet_t packet_list[],
                  size_t packet_count);
     int release_n(comms_packet_t packet_list[],

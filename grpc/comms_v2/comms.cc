@@ -8,8 +8,6 @@ extern "C" {
 }
 #include "comms_impl.h"
 
-#define COMMS_SHORT_CIRCUIT (1)
-
 void comms_set_error(char **error, const char *str) {
     int len = strlen(str);
     error[0] = (char*)calloc(len+1, sizeof(char));
@@ -47,10 +45,10 @@ comms_t::comms_t(comms_end_point_t *end_point_list,
     , shutting_down_(false)
     , shutdown_(false)
     , writers_()
-    , submit_queue_ (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
-    , reap_queue_   (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
-    , catch_queue_  (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
-    , release_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>())
+    , submit_queue_ (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>(1<<20))
+    , reap_queue_   (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>(1<<20))
+    , catch_queue_  (std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>(1<<20))
+    , release_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t>>(1<<20))
 {
     this->end_points_.reserve(end_point_count);
     for (size_t index=0; index<end_point_count; index++) {
@@ -323,7 +321,8 @@ int comms_reap(comms_accessor_t *A,
         return -1;
     }
 
-    return A->C_->reap_queue_->try_dequeue_bulk(packet_list, packet_count);
+    size_t num_reaped = A->C_->reap_queue_->try_dequeue_bulk(packet_list, packet_count);
+    return num_reaped;
 }
 
 int comms_catch(comms_accessor_t *A,
