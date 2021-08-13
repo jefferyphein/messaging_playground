@@ -118,6 +118,7 @@ void comms_receiver_t::CallData::Proceed() {
     }
     else if (status_ == PROCESS) {
         new CallData(service_, cq_);
+        // TODO: Forward incoming request to a reader.
         status_ = FINISH;
         responder_.Finish(response_, grpc::Status::OK, this);
     }

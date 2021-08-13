@@ -56,6 +56,7 @@ void comms_writer_t::run(std::shared_ptr<comms_receiver_t> receiver) {
             packet_list[index].reap.rc = ok ? 0 : 1;
         }
 
+        // If we're not able to enqueue into the reap queue, try again.
         while (true) {
 #ifdef COMMS_USE_TOKENS
             ok = C_->reap_queue_->try_enqueue_bulk(producer_reap_token_, packet_list, num_packets);

@@ -28,17 +28,16 @@ void EndPoint::set_arena_start_block_size(size_t block_size) {
     arena_start_block_size_ = block_size;
 }
 
-size_t EndPoint::submit_n(const comms_packet_t packet_list[],
+void EndPoint::submit_n(const comms_packet_t packet_list[],
                           size_t packet_count,
                           int lane) {
-    submit_queue_->enqueue_bulk(packet_list, packet_count);
-
-    return 0;
+    // TODO: What should we do here? Probably shouldn't block.
+    while (not submit_queue_->try_enqueue_bulk(packet_list, packet_count));
 }
 
-size_t EndPoint::release_n(comms_packet_t packet_list[], size_t packet_count) {
-    release_queue_->enqueue_bulk(packet_list, packet_count);
-    return 0;
+void EndPoint::release_n(comms_packet_t packet_list[], size_t packet_count) {
+    // TODO: What should we do here? Probably shouldn't block.
+    while (not release_queue_->try_enqueue_bulk(packet_list, packet_count));
 }
 
 bool EndPoint::transmit_n(const comms_packet_t packet_list[],

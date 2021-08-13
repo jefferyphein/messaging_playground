@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "base-port", "50000", &error);
     COMMS_HANDLE_ERROR(rc, error);
-    rc = comms_configure(C, "accessor-buffer-size", "2048", &error);
+    rc = comms_configure(C, "accessor-buffer-size", "1024", &error);
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "writer-buffer-size", "1024", &error);
     COMMS_HANDLE_ERROR(rc, error);
@@ -143,11 +143,16 @@ int main(int argc, char **argv) {
             packet_list[index].payload = payload;
         }
 
-        int packets_submitted = comms_submit(A, packet_list, packet_count, &error);
-        if (packets_submitted < 0) {
-            COMMS_HANDLE_ERROR(packets_submitted, error);
+        while (true) {
+            int packets_submitted = comms_submit(A, packet_list, packet_count, &error);
+            if (packets_submitted < 0) {
+                COMMS_HANDLE_ERROR(packets_submitted, error);
+            }
+            else if (packets_submitted > 0) {
+                total_submitted += packets_submitted;
+                break;
+            }
         }
-        total_submitted += packets_submitted;
     }
 
     // Only use existing packets from this point forward.
