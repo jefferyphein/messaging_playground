@@ -18,22 +18,22 @@ vpath %.proto $(PROTOS_PATH)
 
 all: main
 
-main: main.o libcomms.so
+main: main.o libcomms.so comms.h comms_impl.h
 	$(CXX) -o $@ $< -lcomms -L. $(CPPFLAGS) $(LDFLAGS)
 
-main_hoard: main.o libcomms.so
+main_hoard: main.o libcomms.so comms.h comms_impl.h
 	$(CXX) -o $@ $< -lhoard -lcomms -L. $(CPPFLAGS) $(LDFLAGS) -fno-builtin-malloc -fno-builtin-free -fno-builtin-realloc
 
-main_jemalloc: main.o libcomms.so
+main_jemalloc: main.o libcomms.so comms.h comms_impl.h
 	$(CXX) -o $@ $< -ljemalloc -lcomms -L. $(CPPFLAGS) $(LDFLAGS) -fno-builtin-malloc -fno-builtin-free -fno-builtin-realloc
 
-main_mimalloc: main.o libcomms.so
+main_mimalloc: main.o libcomms.so comms.h comms_impl.h
 	$(CXX) -o $@ $< -lmimalloc -lcomms -L. $(CPPFLAGS) $(LDFLAGS) -fno-builtin-malloc -fno-builtin-free -fno-builtin-realloc
 
 libcomms.so: comms.pb.o comms.grpc.pb.o EndPoint.o comms.o comms_accessor.o comms_receiver.o comms_writer.o comms_reader.o
 	$(CXX) -shared -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
 
-%.o: %.cc concurrentqueue.h EndPoint.h comms.h comms_impl.h
+%.o: %.cc concurrentqueue.h comms.h comms_impl.h
 	$(CXX) -o $@ -c $< $(CPPFLAGS) $(LDFLAGS)
 
 %.pb.o: %.pb.cc %.pb.h

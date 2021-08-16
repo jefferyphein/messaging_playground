@@ -8,12 +8,19 @@
 #include <thread>
 #include <grpcpp/grpcpp.h>
 
-#include "EndPoint.h"
+#include "comms.grpc.pb.h"
+#include "comms.pb.h"
+
 #include "concurrentqueue.h"
 
-#define COMMS_SHORT_CIRCUIT (0)
+#define COMMS_SHORT_CIRCUIT (1)
 #define COMMS_USE_ASYNC_SERVICE
 #define COMMS_USE_TOKENS
+
+struct CommsTraits : public moodycamel::ConcurrentQueueDefaultTraits {
+    static const size_t IMPLICIT_INITIAL_INDEX_SIZE = 256;
+    static const size_t BLOCK_SIZE = 1024;
+};
 
 void comms_set_error(char **error, const char *str);
 
@@ -136,6 +143,44 @@ typedef struct comms_writer_t {
     void wait_for_shutdown();
 } comms_writer_t;
 
+class EndPoint {
+public:
+    EndPoint() = delete;
+    EndPoint(comms_end_point_t *end_point,
+             size_t end_point_id,
+             std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> submit_queue,
+             std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> reap_queue,
+             std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> catch_queue,
+             std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> release_queue,
+             uint32_t arena_start_block_depth = 1<<20);
+
+    void set_arena_start_block_size(size_t block_size);
+
+    void submit_n(const comms_packet_t packet_list[],
+                  size_t packet_count,
+                  int lane);
+    void release_n(comms_packet_t packet_list[],
+                   size_t packet_count);
+    bool transmit_n(const comms_packet_t packet_list[],
+                    size_t packet_count,
+                    size_t retry_count,
+                    size_t retry_delay);
+
+private:
+    std::string name_;
+    std::string address_;
+    size_t id_;
+    std::unique_ptr<comms::Comms::Stub> stub_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> submit_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> reap_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> catch_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> release_queue_;
+    size_t arena_start_block_size_;
+
+    grpc::Status send_packets_internal(comms::Packets& packets,
+                                       comms::PacketResponse& response);
+};
+
 typedef struct comms_t {
     config_t conf_;
     int lane_count_;
@@ -157,10 +202,10 @@ typedef struct comms_t {
     std::vector<std::shared_ptr<comms_writer_t>> writers_;
     std::vector<std::thread> writer_threads_;
 
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> submit_queue_;
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> reap_queue_;
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> catch_queue_;
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> release_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> submit_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> reap_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> catch_queue_;
+    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> release_queue_;
 
     std::vector<EndPoint> end_points_;
 

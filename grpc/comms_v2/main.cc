@@ -32,7 +32,7 @@ void catch_and_release_thread(comms_t *C) {
     char *error = NULL;
     comms_accessor_t *A = NULL;
     int rc;
-    const size_t packet_count = 2048;
+    const size_t packet_count = 1024;
     comms_packet_t packet_list[packet_count];
 
     // Wait for comms layer to start.
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "writer-retry-delay", "100", &error);
     COMMS_HANDLE_ERROR(rc, error);
-    rc = comms_configure(C, "writer-thread-count", "2", &error);
+    rc = comms_configure(C, "writer-thread-count", "1", &error);
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "reader-thread-count", "1", &error);
     COMMS_HANDLE_ERROR(rc, error);

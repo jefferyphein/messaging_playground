@@ -2,16 +2,17 @@
 #include <grpcpp/grpcpp.h>
 #include <google/protobuf/arena.h>
 
-#include "comms.grpc.pb.h"
-
-#include "EndPoint.h"
+extern "C" {
+#include "comms.h"
+}
+#include "comms_impl.h"
 
 EndPoint::EndPoint(comms_end_point_t *end_point,
                    size_t end_point_id,
-                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> submit_queue,
-                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> reap_queue,
-                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> catch_queue,
-                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t>> release_queue,
+                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> submit_queue,
+                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> reap_queue,
+                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> catch_queue,
+                   std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsTraits>> release_queue,
                    uint32_t arena_start_block_depth)
         : name_(end_point->name)
         , address_(end_point->address)
