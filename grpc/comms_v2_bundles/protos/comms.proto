@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package comms;
+
+option cc_enable_arenas = true;
+option optimize_for = LITE_RUNTIME;
+
+service Comms {
+    rpc Send(PacketBundle) returns (PacketResponse);
+}
+
+message Packet {
+    int32 src = 1;
+    uint64 tag = 2;
+    bytes payload = 3;
+}
+
+message PacketBundle {
+    int32 lane = 1;
+    repeated Packet packet = 2;
+}
+
+message PacketResponse {
+}
