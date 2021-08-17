@@ -19,8 +19,8 @@ void comms_receiver_t::run(std::string address) {
         reader->wait_for_start();
     }
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(address, grpc::InsecureServerCredentials());
+    ::grpc::ServerBuilder builder;
+    builder.AddListeningPort(address, ::grpc::InsecureServerCredentials());
     builder.RegisterService(&service_);
 #ifdef COMMS_USE_ASYNC_SERVICE
     cq_ = builder.AddCompletionQueue();
@@ -102,8 +102,8 @@ void comms_receiver_t::wait_for_shutdown() {
 }
 
 #ifdef COMMS_USE_ASYNC_SERVICE
-comms_receiver_t::CallData::CallData(comms::Comms::AsyncService *service,
-                                     grpc::ServerCompletionQueue *cq)
+comms_receiver_t::CallData::CallData(::comms::Comms::AsyncService *service,
+                                     ::grpc::ServerCompletionQueue *cq)
         : service_(service)
         , cq_(cq)
         , responder_(&ctx_)
@@ -120,7 +120,7 @@ void comms_receiver_t::CallData::Proceed() {
         new CallData(service_, cq_);
         // TODO: Forward incoming request to a reader.
         status_ = FINISH;
-        responder_.Finish(response_, grpc::Status::OK, this);
+        responder_.Finish(response_, ::grpc::Status::OK, this);
     }
     else {
         GPR_ASSERT( status_ == FINISH );
@@ -129,10 +129,10 @@ void comms_receiver_t::CallData::Proceed() {
 }
 
 #else // #ifndef COMMS_USE_ASYNC_SERVICE
-grpc::Status CommsSyncServiceImpl::Send(grpc::ServerContext *context,
-                                        const comms::Packets *request,
-                                        comms::PacketResponse *response) {
+::grpc::Status CommsSyncServiceImpl::Send(::grpc::ServerContext *context,
+                                          const ::comms::Packets *request,
+                                          ::comms::PacketResponse *response) {
     // TODO: Forward incoming request to a reader.
-    return grpc::Status::OK;
+    return ::grpc::Status::OK;
 }
 #endif

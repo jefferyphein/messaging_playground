@@ -243,7 +243,7 @@ int comms_destroy(comms_t *C,
     delete C;
 
     // Clean up objects statically allocated by the protobuf library.
-    google::protobuf::ShutdownProtobufLibrary();
+    ::google::protobuf::ShutdownProtobufLibrary();
 
     return 0;
 }

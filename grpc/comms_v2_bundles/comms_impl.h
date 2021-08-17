@@ -83,11 +83,11 @@ typedef struct comms_reader_t {
     void wait_for_shutdown();
 } comms_reader_t;
 
-class CommsSyncServiceImpl final : public comms::Comms::Service {
+class CommsSyncServiceImpl final : public ::comms::Comms::Service {
 public:
-    grpc::Status Send(grpc::ServerContext *context,
-                      const comms::PacketBundle *request,
-                      comms::PacketResponse *response) override;
+    ::grpc::Status Send(::grpc::ServerContext *context,
+                        const ::comms::PacketBundle *request,
+                        ::comms::PacketResponse *response) override;
 };
 
 typedef struct comms_receiver_t {
@@ -103,26 +103,26 @@ typedef struct comms_receiver_t {
     std::vector<std::shared_ptr<comms_reader_t>> readers_;
 
     std::shared_ptr<std::thread> thread_;
-    std::unique_ptr<grpc::Server> server_;
+    std::unique_ptr<::grpc::Server> server_;
 
 #ifdef COMMS_USE_ASYNC_SERVICE
-    comms::Comms::AsyncService service_;
-    std::unique_ptr<grpc::ServerCompletionQueue> cq_;
+    ::comms::Comms::AsyncService service_;
+    std::unique_ptr<::grpc::ServerCompletionQueue> cq_;
 
     class CallData {
     public:
-        CallData(comms::Comms::AsyncService *service,
-                 grpc::ServerCompletionQueue *cq);
+        CallData(::comms::Comms::AsyncService *service,
+                 ::grpc::ServerCompletionQueue *cq);
 
         void Proceed();
 
     private:
-        comms::Comms::AsyncService *service_;
-        grpc::ServerCompletionQueue *cq_;
-        grpc::ServerContext ctx_;
-        comms::PacketBundle request_;
-        comms::PacketResponse response_;
-        grpc::ServerAsyncResponseWriter<comms::PacketResponse> responder_;
+        ::comms::Comms::AsyncService *service_;
+        ::grpc::ServerCompletionQueue *cq_;
+        ::grpc::ServerContext ctx_;
+        ::comms::PacketBundle request_;
+        ::comms::PacketResponse response_;
+        ::grpc::ServerAsyncResponseWriter<::comms::PacketResponse> responder_;
         enum CallStatus { CREATE, PROCESS, FINISH };
         CallStatus status_;
     };
@@ -183,12 +183,12 @@ private:
     std::string address_;
     size_t id_;
     bool is_local_;
-    std::unique_ptr<comms::Comms::Stub> stub_;
+    std::unique_ptr<::comms::Comms::Stub> stub_;
     std::shared_ptr<moodycamel::ConcurrentQueue<comms_bundle_t,CommsBundleTraits>> deposit_queue_;
     size_t arena_start_block_size_;
 
-    grpc::Status send_packets_internal(comms::PacketBundle& packets,
-                                       comms::PacketResponse& response);
+    ::grpc::Status send_packets_internal(::comms::PacketBundle& packets,
+                                         ::comms::PacketResponse& response);
 };
 
 typedef struct comms_t {
