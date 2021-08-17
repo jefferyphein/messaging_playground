@@ -131,12 +131,13 @@ int main(int argc, char **argv) {
     long total_submitted = 0;
     long total_successful = 0;
     long total_reaped = 0;
+    long submit_tag = 0;
     for (size_t n=0; n<256; n++) {
         comms_packet_t packet_list[packet_count];
         for (size_t index=0; index<packet_count; index++) {
             packet_list[index].submit.size = COMMS_PAYLOAD_SIZE;
             packet_list[index].submit.dst = 0;
-            packet_list[index].submit.tag = 0;
+            packet_list[index].submit.tag = submit_tag++;
 
             uint8_t *payload = (unsigned char*)calloc(COMMS_PAYLOAD_SIZE, sizeof(unsigned char));
             payloads.push_back(payload);
@@ -173,7 +174,7 @@ int main(int argc, char **argv) {
 
             packet_list[index].submit.size = COMMS_PAYLOAD_SIZE;
             packet_list[index].submit.dst = 0;
-            packet_list[index].submit.tag = 0;
+            packet_list[index].submit.tag = submit_tag++;
         }
 
         int packets_submitted = comms_submit(A, packet_list, packet_count, &error);
