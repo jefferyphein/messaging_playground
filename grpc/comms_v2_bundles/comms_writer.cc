@@ -47,9 +47,10 @@ void comms_writer_t::run(std::shared_ptr<comms_receiver_t> receiver) {
         }
 
         // Transmit the packet bundle over the wire, then set the return code.
-        size_t num_packets = bundle.size();
+        ok = C_->end_points_[0].transmit_n(bundle, retry_count, retry_delay);
+
         comms_packet_t *packet_list = bundle.packet_list();
-        ok = C_->end_points_[0].transmit_n(packet_list, num_packets, retry_count, retry_delay);
+        size_t num_packets = bundle.size();
         for (size_t index=0; index<num_packets; index++) {
             packet_list[index].reap.rc = ok ? 0 : 1;
         }

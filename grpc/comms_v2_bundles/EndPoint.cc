@@ -39,10 +39,12 @@ bool EndPoint::deposit_n(comms_bundle_t& bundle) {
 //    while (not release_queue_->try_enqueue(bundle));
 //}
 
-bool EndPoint::transmit_n(const comms_packet_t packet_list[],
-                          size_t packet_count,
+bool EndPoint::transmit_n(comms_bundle_t& bundle,
                           size_t retry_count,
                           size_t retry_delay) {
+    size_t packet_count = bundle.size();
+    const comms_packet_t *packet_list = bundle.packet_list();
+
     ::google::protobuf::ArenaOptions arena_options;
     arena_options.start_block_size = arena_start_block_size_;
     ::google::protobuf::Arena arena(arena_options);

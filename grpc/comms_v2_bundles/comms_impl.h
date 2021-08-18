@@ -172,8 +172,7 @@ public:
 
     bool deposit_n(comms_bundle_t& bundle);
     void release_n(comms_bundle_t& bundle);
-    bool transmit_n(const comms_packet_t packet_list[],
-                    size_t packet_count,
+    bool transmit_n(comms_bundle_t& bundle,
                     size_t retry_count,
                     size_t retry_delay);
     bool is_local() const;
