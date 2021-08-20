@@ -83,10 +83,6 @@ int main(int argc, char **argv) {
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "base-port", "50000", &error);
     COMMS_HANDLE_ERROR(rc, error);
-    rc = comms_configure(C, "accessor-buffer-size", "1024", &error);
-    COMMS_HANDLE_ERROR(rc, error);
-    rc = comms_configure(C, "writer-buffer-size", "1024", &error);
-    COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "writer-retry-count", "25", &error);
     COMMS_HANDLE_ERROR(rc, error);
     rc = comms_configure(C, "writer-retry-delay", "100", &error);
@@ -117,7 +113,6 @@ int main(int argc, char **argv) {
 
     // Start timer.
     auto start = std::chrono::system_clock::now();
-    double checkpoint = COMMS_CHECKPOINT_DELTA;
 
     // Track all payloads.
     std::vector<uint8_t*> payloads;
@@ -158,6 +153,8 @@ int main(int argc, char **argv) {
     }
 
     // Only use existing packets from this point forward.
+    size_t last_successful = 0;
+    auto checkpoint = std::chrono::system_clock::now();
     while (total_successful < 500000000) {
         comms_packet_t packet_list[packet_count];
         size_t num_reaped = comms_reap(A, packet_list, packet_count, &error);
@@ -184,12 +181,18 @@ int main(int argc, char **argv) {
         total_submitted += packets_submitted;
 
         auto now = std::chrono::system_clock::now();
-        std::chrono::duration<double> diff = now-start;
+        std::chrono::duration<double> diff = now-checkpoint;
         double elapsed = diff.count();
-        if (elapsed >= checkpoint) {
-            printf("successful: %8ld, rate: %.4f\n", total_successful, (total_successful / elapsed));
-            checkpoint = elapsed+COMMS_CHECKPOINT_DELTA;
+        if (elapsed >= COMMS_CHECKPOINT_DELTA) {
+            size_t successful = total_successful-last_successful;
+            printf("successful: %8ld, rate: %.4f\n", total_successful, (successful / elapsed));
+            checkpoint = now;
+            last_successful = total_successful;
         }
+    }
+    int num_flushed = comms_submit_flush(A, &error);
+    if (num_flushed < 0) {
+        COMMS_HANDLE_ERROR(num_flushed, error);
     }
 
     // Reap all packets.

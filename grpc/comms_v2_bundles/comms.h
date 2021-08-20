@@ -59,4 +59,6 @@ int comms_reap   (comms_accessor_t *A, comms_packet_t packet_list[], size_t pack
 int comms_catch  (comms_accessor_t *A, comms_packet_t packet_list[], size_t packet_count, char **error);
 int comms_release(comms_accessor_t *A, comms_packet_t packet_list[], size_t packet_count, char **error);
 
+int comms_submit_flush(comms_accessor_t *A, char **error);
+
 #endif // __COMMS_H_

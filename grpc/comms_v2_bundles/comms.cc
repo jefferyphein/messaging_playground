@@ -17,8 +17,6 @@ void comms_set_error(char **error, const char *str) {
 config_t::config_t()
     : process_name(NULL)
     , base_port(0)
-    , accessor_buffer_size(1024)
-    , writer_buffer_size(1024)
     , reader_buffer_size(1024)
     , writer_retry_count(25)
     , writer_retry_delay(100)
@@ -210,12 +208,6 @@ int comms_configure(comms_t *C,
     else if (strncmp(key, "base-port", 9) == 0) {
         C->conf_.base_port = (uint16_t)atoi(value);
     }
-    else if (strncmp(key, "accessor-buffer-size", 20) == 0) {
-        C->conf_.accessor_buffer_size = (size_t)atoi(value);
-    }
-    else if (strncmp(key, "writer-buffer-size", 18) == 0) {
-        C->conf_.writer_buffer_size = (size_t)atoi(value);
-    }
     else if (strncmp(key, "reader-buffer-size", 18) == 0) {
         C->conf_.reader_buffer_size = (size_t)atoi(value);
     }
@@ -304,6 +296,25 @@ int comms_submit(comms_accessor_t *A,
 
     A->submit_n(packet_list, packet_count);
     return static_cast<int>(packet_count);
+}
+
+int comms_submit_flush(comms_accessor_t *A,
+                       char **error) {
+    if (A->C_ == NULL) {
+        std::stringstream ss;
+        ss << "Cannot flush, accessor is not bound to a comms object.";
+        comms_set_error(error, ss.str().c_str());
+        return -1;
+    }
+
+    if (A->C_->shutting_down_) {
+        std::stringstream ss;
+        ss << "Cannot flush packets while comms layer is shutting down. Must flush before shutting down comms layer.";
+        comms_set_error(error, ss.str().c_str());
+        return -1;
+    }
+
+    return A->submit_flush();
 }
 
 int comms_reap(comms_accessor_t *A,

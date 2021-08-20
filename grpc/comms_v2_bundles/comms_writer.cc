@@ -29,11 +29,9 @@ void comms_writer_t::run(std::shared_ptr<comms_receiver_t> receiver) {
         started_cv_.notify_all();
     }
 
-    const size_t packet_count = C_->conf_.writer_buffer_size;
     const size_t retry_count = C_->conf_.writer_retry_count;
     const size_t retry_delay = C_->conf_.writer_retry_delay;
 
-    comms_packet_t packet_list[packet_count];
     while (true) {
         // Grab a bundle.
         comms_bundle_t bundle;

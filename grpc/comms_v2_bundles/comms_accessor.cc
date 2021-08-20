@@ -11,13 +11,33 @@ comms_accessor_t::comms_accessor_t(comms_t *C, int lane)
         : C_(C)
         , lane_(lane)
         , end_point_count_(C->end_points_.size())
-        , buffer_size_(C->conf_.accessor_buffer_size)
+        , buffer_size_(COMMS_BUNDLE_SIZE)
         , submit_bundles_()
         , reap_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t,CommsPacketTraits>>(1<<21))
 {
     for (auto& end_point : C_->end_points_) {
         submit_bundles_.emplace_back(end_point.is_local() ? nullptr : reap_queue_);
     }
+}
+
+static void comms_accessor_submit_bundle(comms_accessor_t *A, EndPoint& end_point, comms_bundle_t& bundle) {
+    // Buffer is full, submit the packets and set the return code based
+    // on whether the deposit succeeded or failed.
+    bool ok = end_point.deposit_n(bundle);
+
+    // Place the packets into the reap queue, only if this is the local end point.
+    if (bundle.return_queue() == nullptr) {
+        // Set the return code based on deposit status.
+        bundle.set_reap_rc(ok ? 0 : 1);
+
+        // TODO: Come up with a better way to handle failure in this case.
+        while (not A->reap_queue_->try_enqueue_bulk(bundle.packet_list(), bundle.size())) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+
+    // Once we're done, clear the bundle.
+    bundle.clear();
 }
 
 void comms_accessor_t::submit_n(comms_packet_t packet_list[],
@@ -28,32 +48,27 @@ void comms_accessor_t::submit_n(comms_packet_t packet_list[],
         bundle.add(packet_list[index]);
 
         if (bundle.size() == buffer_size_) {
-            // Buffer is full, submit the packets and set the return code based
-            // on whether the deposit succeeded or failed.
-            bool ok = C_->end_points_[dst].deposit_n(bundle);
-            bundle.set_reap_rc(ok ? 0 : 1);
-
-            // Place the packets into the reap queue, only if this is the local end point.
-            if (bundle.return_queue() == nullptr) {
-                // TODO: Come up with a better way to handle failure in this case.
-                while (not reap_queue_->try_enqueue_bulk(bundle.packet_list(), bundle.size())) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
-            }
-
-            // Once we're done, clear the bundle.
-            bundle.clear();
+            comms_accessor_submit_bundle(this, C_->end_points_[dst], bundle);
         }
     }
 }
 
+size_t comms_accessor_t::submit_flush() {
+    size_t num_flushed = 0;
+    for (size_t index=0; index<end_point_count_; index++) {
+        comms_accessor_submit_bundle(this, C_->end_points_[index], submit_bundles_[index]);
+        num_flushed += submit_bundles_[index].size();
+    }
+    return num_flushed;
+}
+
 size_t comms_accessor_t::reap_n(comms_packet_t packet_list[],
-                             size_t packet_count) {
+                                size_t packet_count) {
     return reap_queue_->try_dequeue_bulk(packet_list, packet_count);
 }
 
 size_t comms_accessor_t::catch_n(comms_packet_t packet_list[],
-                              size_t packet_count) {
+                                 size_t packet_count) {
     size_t num_caught = catch_queue_.try_dequeue_bulk(packet_list, packet_count);
     if (num_caught == packet_count) {
         return num_caught;
@@ -66,14 +81,12 @@ size_t comms_accessor_t::catch_n(comms_packet_t packet_list[],
 
         size_t count = std::min(packet_count-num_caught, bundle.size());
         comms_packet_t *packets = bundle.packet_list();
-        for (size_t index=0; index<count; index++) {
-            packet_list[num_caught+index] = packets[index];
-        }
+        memcpy(packet_list+num_caught, packets, sizeof(comms_packet_t)*count);
         num_caught += count;
 
         // Extra packets leftover in the bundle.
         if (count < bundle.size()) {
-            bool ok = catch_queue_.try_enqueue_bulk(packet_list+count, bundle.size()-count);
+            bool ok = catch_queue_.try_enqueue_bulk(packets+count, bundle.size()-count);
             if (not ok) { std::cout << "catch: not ok" << std::endl; }
         }
     }

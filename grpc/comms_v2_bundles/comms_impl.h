@@ -13,7 +13,7 @@
 
 #include "concurrentqueue.h"
 
-#define COMMS_BUNDLE_SIZE (1024)
+#define COMMS_BUNDLE_SIZE (4096)
 #define COMMS_SHORT_CIRCUIT (1)
 #define COMMS_USE_ASYNC_SERVICE
 
@@ -33,9 +33,7 @@ typedef struct comms_accessor_t comms_accessor_t;
 typedef struct config_t {
     char *process_name;
     uint16_t base_port;
-    size_t accessor_buffer_size;
     size_t reader_buffer_size;
-    size_t writer_buffer_size;
     size_t writer_retry_count;
     size_t writer_retry_delay;
     uint32_t writer_thread_count;
@@ -240,6 +238,7 @@ typedef struct comms_accessor_t {
 
     comms_accessor_t(comms_t *C,
                      int lane);
+
     void submit_n(comms_packet_t packet_list[],
                   size_t packet_count);
     size_t reap_n(comms_packet_t packet_list[],
@@ -248,6 +247,8 @@ typedef struct comms_accessor_t {
                    size_t packet_count);
     void release_n(comms_packet_t packet_list[],
                    size_t packet_count);
+
+    size_t submit_flush();
 } comms_accessor_t;
 
 #endif // __COMMS_IMPL_H_
