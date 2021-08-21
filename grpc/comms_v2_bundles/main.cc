@@ -49,7 +49,10 @@ void catch_and_release_thread(comms_t *C) {
             free(error); // Make valgrind happy.
             break;
         }
-        if (num_caught == 0) continue;
+        if (num_caught == 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
 
         comms_release(A, packet_list, num_caught, &error);
     }
@@ -105,11 +108,9 @@ int main(int argc, char **argv) {
     rc = comms_wait_for_start(C, 0.0, &error);
     COMMS_HANDLE_ERROR(rc, error);
 
-    // Generate a random payload.
-    using random_bytes_engine = std::independent_bits_engine<std::default_random_engine, CHAR_BIT, unsigned char>;
+    // Set up the random number generator.
+    using random_bytes_engine = std::independent_bits_engine<std::default_random_engine, CHAR_BIT, uint8_t>;
     random_bytes_engine rbe;
-    std::vector<unsigned char> data(COMMS_PAYLOAD_SIZE);
-    std::generate(begin(data), end(data), std::ref(rbe));
 
     // Start timer.
     auto start = std::chrono::system_clock::now();
@@ -134,9 +135,12 @@ int main(int argc, char **argv) {
             packet_list[index].submit.dst = 0;
             packet_list[index].submit.tag = submit_tag++;
 
-            uint8_t *payload = (unsigned char*)calloc(COMMS_PAYLOAD_SIZE, sizeof(unsigned char));
+            // Generate a random payload and assign it to the packet.
+            std::vector<uint8_t> data(COMMS_PAYLOAD_SIZE);
+            std::generate(begin(data), end(data), std::ref(rbe));
+            uint8_t *payload = (uint8_t*)calloc(COMMS_PAYLOAD_SIZE, sizeof(uint8_t));
             payloads.push_back(payload);
-            memcpy(payload, data.data(), sizeof(uint8_t));
+            memcpy(payload, data.data(), sizeof(uint8_t)*COMMS_PAYLOAD_SIZE);
             packet_list[index].payload = payload;
         }
 
@@ -165,7 +169,7 @@ int main(int argc, char **argv) {
         total_reaped += num_reaped;
 
         for (size_t index=0; index<num_reaped; index++) {
-            if (packet_list[index].reap.rc == 0) {
+            if (packet_list[index].reap.rc == COMMS_SUCCESS) {
                 total_successful++;
             }
 

@@ -12,26 +12,28 @@ comms_accessor_t::comms_accessor_t(comms_t *C, int lane)
         , lane_(lane)
         , end_point_count_(C->end_points_.size())
         , buffer_size_(COMMS_BUNDLE_SIZE)
-        , submit_bundles_()
+        , submit_bundles_(C->end_points_.size())
         , reap_queue_(std::make_shared<moodycamel::ConcurrentQueue<comms_packet_t,CommsPacketTraits>>(1<<21))
-{
-    for (auto& end_point : C_->end_points_) {
-        submit_bundles_.emplace_back(end_point.is_local() ? nullptr : reap_queue_);
-    }
-}
+{}
 
 static void comms_accessor_submit_bundle(comms_accessor_t *A, EndPoint& end_point, comms_bundle_t& bundle) {
+    // Assign the reap queue to the opaque pointer for each packet in bundle.
+    comms_packet_t *packet_list = bundle.packet_list();
+    size_t packet_count = bundle.size();
+    for (size_t index=0; index<packet_count; index++) {
+        packet_list[index].opaque = (void*)A->reap_queue_.get();
+    }
+
     // Buffer is full, submit the packets and set the return code based
     // on whether the deposit succeeded or failed.
     bool ok = end_point.deposit_n(bundle);
 
-    // Place the packets into the reap queue, only if this is the local end point.
-    if (bundle.return_queue() == nullptr) {
-        // Set the return code based on deposit status.
-        bundle.set_reap_rc(ok ? 0 : 1);
+    // If the deposit failed, update return code and immediately place into
+    // reap queue.
+    if (not ok) {
+        bundle.set_reap_rc(COMMS_NOT_SCHEDULED);
 
-        // TODO: Come up with a better way to handle failure in this case.
-        while (not A->reap_queue_->try_enqueue_bulk(bundle.packet_list(), bundle.size())) {
+        while (not A->reap_queue_->try_enqueue_bulk(packet_list, packet_count)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
@@ -94,16 +96,12 @@ size_t comms_accessor_t::catch_n(comms_packet_t packet_list[],
 }
 
 void comms_accessor_t::release_n(comms_packet_t packet_list[],
-                                size_t packet_count) {
-    //for (size_t index=0; index<packet_count; index++) {
-    //    uint32_t src = packet_list[index].caught.src;
-    //    comms_bundle_t& bundle = release_bundles_[src];
-    //    bundle.add(packet_list[index]);
-    //    if (bundle.size() == buffer_size_) {
-    //        C_->end_points_[src].release_n(bundle);
-    //        bundle.clear();
-    //    }
-    //}
+                                 size_t packet_count) {
+    for (size_t index=0; index<packet_count; index++) {
+        while (not static_cast<PacketQueue*>(packet_list[index].opaque)->try_enqueue(packet_list[index])) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
 }
 
 int comms_accessor_create(comms_accessor_t **A,

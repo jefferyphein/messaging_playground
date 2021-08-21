@@ -14,7 +14,7 @@
 #include "concurrentqueue.h"
 
 #define COMMS_BUNDLE_SIZE (4096)
-#define COMMS_SHORT_CIRCUIT (1)
+#define COMMS_SHORT_CIRCUIT (0)
 #define COMMS_USE_ASYNC_SERVICE
 
 struct CommsPacketTraits : public moodycamel::ConcurrentQueueDefaultTraits {
@@ -29,6 +29,10 @@ struct CommsBundleTraits : public moodycamel::ConcurrentQueueDefaultTraits {
 
 void comms_set_error(char **error, const char *str);
 typedef struct comms_accessor_t comms_accessor_t;
+typedef struct comms_bundle_t comms_bundle_t;
+
+using PacketQueue = moodycamel::ConcurrentQueue<comms_packet_t,CommsPacketTraits>;
+using BundleQueue = moodycamel::ConcurrentQueue<comms_bundle_t,CommsBundleTraits>;
 
 typedef struct config_t {
     char *process_name;
@@ -45,18 +49,15 @@ typedef struct config_t {
 } config_t;
 
 typedef struct comms_bundle_t {
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsPacketTraits>> return_queue_;
     size_t size_;
     comms_packet_t packet_list_[COMMS_BUNDLE_SIZE];
 
     comms_bundle_t();
-    comms_bundle_t(std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsPacketTraits>> return_queue);
     void add(const comms_packet_t& packet);
     size_t size() const;
     void clear();
     comms_packet_t *packet_list();
     void set_reap_rc(int rc);
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsPacketTraits>> return_queue() const;
 } comms_bundle_t;
 
 typedef struct comms_reader_t {
@@ -163,7 +164,7 @@ public:
     EndPoint(comms_end_point_t *end_point,
              size_t end_point_id,
              bool is_local,
-             std::shared_ptr<moodycamel::ConcurrentQueue<comms_bundle_t,CommsBundleTraits>> deposit_queue,
+             std::shared_ptr<BundleQueue> deposit_queue,
              uint32_t arena_start_block_depth = 1<<20);
 
     void set_arena_start_block_size(size_t block_size);
@@ -181,7 +182,7 @@ private:
     size_t id_;
     bool is_local_;
     std::unique_ptr<::comms::Comms::Stub> stub_;
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_bundle_t,CommsBundleTraits>> deposit_queue_;
+    std::shared_ptr<BundleQueue> deposit_queue_;
     size_t arena_start_block_size_;
 
     ::grpc::Status send_packets_internal(::comms::PacketBundle& packets,
@@ -209,8 +210,8 @@ typedef struct comms_t {
     std::vector<std::shared_ptr<comms_writer_t>> writers_;
     std::vector<std::thread> writer_threads_;
 
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_bundle_t,CommsBundleTraits>> submit_queue_;
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_bundle_t,CommsBundleTraits>> catch_queue_;
+    std::shared_ptr<BundleQueue> submit_queue_;
+    std::shared_ptr<BundleQueue> catch_queue_;
 
     std::vector<EndPoint> end_points_;
     size_t local_index_;
@@ -232,9 +233,8 @@ typedef struct comms_accessor_t {
     size_t end_point_count_;
     size_t buffer_size_;
     std::vector<comms_bundle_t> submit_bundles_;
-    std::vector<comms_bundle_t> release_bundles_;
-    std::shared_ptr<moodycamel::ConcurrentQueue<comms_packet_t,CommsPacketTraits>> reap_queue_;
-    moodycamel::ConcurrentQueue<comms_packet_t,CommsPacketTraits> catch_queue_;
+    std::shared_ptr<PacketQueue> reap_queue_;
+    PacketQueue catch_queue_;
 
     comms_accessor_t(comms_t *C,
                      int lane);

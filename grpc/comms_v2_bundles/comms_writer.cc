@@ -51,15 +51,16 @@ void comms_writer_t::run(std::shared_ptr<comms_receiver_t> receiver) {
         size_t num_packets = bundle.size();
         for (size_t index=0; index<num_packets; index++) {
             packet_list[index].reap.rc = ok ? 0 : 1;
+            static_cast<PacketQueue*>(packet_list[index].opaque)->try_enqueue(packet_list[index]);
         }
 
-        // Deposit into the return queue only if the return queue is set.
-        if (bundle.return_queue() != nullptr) {
-            // TODO: Probably shouldn't spin here, but alas.
-            while (not bundle.return_queue()->try_enqueue_bulk(packet_list, num_packets)) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-        }
+        //// Deposit into the return queue only if the return queue is set.
+        //if (bundle.return_queue() != nullptr) {
+        //    // TODO: Probably shouldn't spin here, but alas.
+        //    while (not bundle.return_queue()->try_enqueue_bulk(packet_list, num_packets)) {
+        //        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        //    }
+        //}
     }
 
     // Acquire shutdown mutex and notify shutdown.

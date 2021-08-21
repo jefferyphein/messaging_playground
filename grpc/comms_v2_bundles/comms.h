@@ -4,10 +4,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/*
 #define COMMS_DELIVERED         0   // reap: packet was sent
 #define COMMS_NOT_DELIVERED     1   // reap: destination queue was backed up, not sent
 #define COMMS_LOCAL             2   // catch: skipped the network
 #define COMMS_REMOTE            3   // catch: remote packet received
+*/
+
+#define COMMS_SUCCESS           0
+#define COMMS_NOT_SCHEDULED     1
 
 typedef struct comms_end_point_t {
     char *name;
@@ -39,6 +44,7 @@ typedef struct comms_packet_t {
         comms_catch_header_t caught;
     };
     uint8_t *payload;
+    void *opaque;
 } comms_packet_t;
 
 typedef struct comms_t comms_t;
