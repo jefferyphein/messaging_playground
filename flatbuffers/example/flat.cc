@@ -25,15 +25,9 @@ int main(int argc, char **argv) {
     }
     builder.Finish(packet_bundle);
 
+    // Acquire the serialized buffer and its size.
     uint8_t *buf = builder.GetBufferPointer(); // 1 allocation
     int size = builder.GetSize();
-    std::cout << size << std::endl;
-
-    for (int n=0; n<size; n++) {
-        printf("%3d ", buf[n]);
-        if ((n&15)==15) printf("\n");
-    }
-    printf("\n");
 
     free(payload);
 
