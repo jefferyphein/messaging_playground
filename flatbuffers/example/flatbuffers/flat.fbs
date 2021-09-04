@@ -1,0 +1,9 @@
+namespace flat;
+
+table Packet {
+    payload:[uint8];
+}
+
+table PacketBundle {
+    packet:[Packet];
+}
