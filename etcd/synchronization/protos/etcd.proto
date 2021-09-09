@@ -1,0 +1,212 @@
+// This is a custom-made proto file definining the protocols required by the
+// sync implementation library. Everything in here was copy/pasted from the
+// official etcd proto definitions, but have been modified to fit into the use
+// case for this library.
+
+syntax = "proto3";
+
+package etcdserverpb;
+
+import "google/protobuf/descriptor.proto";
+import "google/api/annotations.proto";
+
+service KV {
+  // Put puts the given key into the key-value store.
+  // A put request increments the revision of the key-value store
+  // and generates one event in the event history.
+  rpc Put(PutRequest) returns (PutResponse) {
+    option (google.api.http) = {
+      post: "/v3/kv/put";
+      body: "*";
+    };
+  }
+}
+
+service Lease {
+  // LeaseGrant creates a lease which expires if the server does not receive a keepAlive
+  // within a given time to live period. All keys attached to the lease will be expired and
+  // deleted if the lease expires. Each expired key generates a delete event in the event history.
+  rpc LeaseGrant(LeaseGrantRequest) returns (LeaseGrantResponse) {
+      option (google.api.http) = {
+        post: "/v3/lease/grant"
+        body: "*"
+    };
+  }
+
+  // LeaseRevoke revokes a lease. All keys attached to the lease will expire and be deleted.
+  rpc LeaseRevoke(LeaseRevokeRequest) returns (LeaseRevokeResponse) {
+      option (google.api.http) = {
+        post: "/v3/lease/revoke"
+        body: "*"
+        additional_bindings {
+            post: "/v3/kv/lease/revoke"
+            body: "*"
+        }
+    };
+  }
+
+  // LeaseKeepAlive keeps the lease alive by streaming keep alive requests from the client
+  // to the server and streaming keep alive responses from the server to the client.
+  rpc LeaseKeepAlive(stream LeaseKeepAliveRequest) returns (stream LeaseKeepAliveResponse) {
+      option (google.api.http) = {
+        post: "/v3/lease/keepalive"
+        body: "*"
+    };
+  }
+}
+
+// Indicates etcd version that introduced the message, used to determine minimal etcd version required to interpret wal that includes this message.
+extend google.protobuf.MessageOptions {
+  string etcd_version_msg = 50000;
+}
+
+// Indicates etcd version that introduced the field, used to determine minimal etcd version required to interpret wal that sets this field.
+extend google.protobuf.FieldOptions {
+  string etcd_version_field = 50001;
+}
+
+// Indicates etcd version that introduced the enum, used to determine minimal etcd version required to interpret wal that uses this enum.
+extend google.protobuf.EnumOptions {
+  string etcd_version_enum = 50002;
+}
+
+// Indicates etcd version that introduced the enum value, used to determine minimal etcd version required to interpret wal that sets this enum value.
+extend google.protobuf.EnumValueOptions {
+  string etcd_version_enum_value = 50003;
+}
+
+message PutRequest {
+  option (etcd_version_msg) = "3.0";
+
+  // key is the key, in bytes, to put into the key-value store.
+  bytes key = 1;
+  // value is the value, in bytes, to associate with the key in the key-value store.
+  bytes value = 2;
+  // lease is the lease ID to associate with the key in the key-value store. A lease
+  // value of 0 indicates no lease.
+  int64 lease = 3;
+
+  // If prev_kv is set, etcd gets the previous key-value pair before changing it.
+  // The previous key-value pair will be returned in the put response.
+  bool prev_kv = 4 [(etcd_version_field)="3.1"];
+
+  // If ignore_value is set, etcd updates the key using its current value.
+  // Returns an error if the key does not exist.
+  bool ignore_value = 5 [(etcd_version_field)="3.2"];
+
+  // If ignore_lease is set, etcd updates the key using its current lease.
+  // Returns an error if the key does not exist.
+  bool ignore_lease = 6 [(etcd_version_field)="3.2"];
+}
+
+message ResponseHeader {
+  option (etcd_version_msg) = "3.0";
+
+  // cluster_id is the ID of the cluster which sent the response.
+  uint64 cluster_id = 1;
+  // member_id is the ID of the member which sent the response.
+  uint64 member_id = 2;
+  // revision is the key-value store revision when the request was applied.
+  // For watch progress responses, the header.revision indicates progress. All future events
+  // received in this stream are guaranteed to have a higher revision number than the
+  // header.revision number.
+  int64 revision = 3;
+  // raft_term is the raft term when the request was applied.
+  uint64 raft_term = 4;
+}
+
+message PutResponse {
+  option (etcd_version_msg) = "3.0";
+
+  ResponseHeader header = 1;
+  // if prev_kv is set in the request, the previous key-value pair will be returned.
+  KeyValue prev_kv = 2 [(etcd_version_field)="3.1"];
+}
+
+message KeyValue {
+  // key is the key in bytes. An empty key is not allowed.
+  bytes key = 1;
+  // create_revision is the revision of last creation on this key.
+  int64 create_revision = 2;
+  // mod_revision is the revision of last modification on this key.
+  int64 mod_revision = 3;
+  // version is the version of the key. A deletion resets
+  // the version to zero and any modification of the key
+  // increases its version.
+  int64 version = 4;
+  // value is the value held by the key, in bytes.
+  bytes value = 5;
+  // lease is the ID of the lease that attached to key.
+  // When the attached lease expires, the key will be deleted.
+  // If lease is 0, then no lease is attached to the key.
+  int64 lease = 6;
+}
+
+message Event {
+  enum EventType {
+    PUT = 0;
+    DELETE = 1;
+  }
+  // type is the kind of event. If type is a PUT, it indicates
+  // new data has been stored to the key. If type is a DELETE,
+  // it indicates the key was deleted.
+  EventType type = 1;
+  // kv holds the KeyValue for the event.
+  // A PUT event contains current kv pair.
+  // A PUT event with kv.Version=1 indicates the creation of a key.
+  // A DELETE/EXPIRE event contains the deleted key with
+  // its modification revision set to the revision of deletion.
+  KeyValue kv = 2;
+
+  // prev_kv holds the key-value pair before the event happens.
+  KeyValue prev_kv = 3;
+}
+
+message LeaseGrantRequest {
+  option (etcd_version_msg) = "3.0";
+
+  // TTL is the advisory time-to-live in seconds. Expired lease will return -1.
+  int64 TTL = 1;
+  // ID is the requested ID for the lease. If ID is set to 0, the lessor chooses an ID.
+  int64 ID = 2;
+}
+
+message LeaseGrantResponse {
+  option (etcd_version_msg) = "3.0";
+
+  ResponseHeader header = 1;
+  // ID is the lease ID for the granted lease.
+  int64 ID = 2;
+  // TTL is the server chosen lease time-to-live in seconds.
+  int64 TTL = 3;
+  string error = 4;
+}
+
+message LeaseRevokeRequest {
+  option (etcd_version_msg) = "3.0";
+
+  // ID is the lease ID to revoke. When the ID is revoked, all associated keys will be deleted.
+  int64 ID = 1;
+}
+
+message LeaseRevokeResponse {
+  option (etcd_version_msg) = "3.0";
+
+  ResponseHeader header = 1;
+}
+
+message LeaseKeepAliveRequest {
+  option (etcd_version_msg) = "3.0";
+  // ID is the lease ID for the lease to keep alive.
+  int64 ID = 1;
+}
+
+message LeaseKeepAliveResponse {
+  option (etcd_version_msg) = "3.0";
+
+  ResponseHeader header = 1;
+  // ID is the lease ID from the keep alive request.
+  int64 ID = 2;
+  // TTL is the new time-to-live for the lease.
+  int64 TTL = 3;
+}
