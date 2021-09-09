@@ -1,3 +1,4 @@
+#include <google/protobuf/arena.h>
 extern "C" {
 #include "comms.h"
 }
@@ -108,13 +109,17 @@ comms_receiver_t::CallData::CallData(::comms::Comms::AsyncService *service,
         , cq_(cq)
         , responder_(&ctx_)
         , status_(CREATE) {
+    ::google::protobuf::ArenaOptions arena_options;
+    arena_options.start_block_size = 1<<20;
+    arena_ = std::unique_ptr<::google::protobuf::Arena>(new ::google::protobuf::Arena(arena_options));
+    request_ = ::google::protobuf::Arena::CreateMessage<::comms::PacketBundle>(arena_.get());
     Proceed();
 }
 
 void comms_receiver_t::CallData::Proceed() {
     if (status_ == CREATE) {
         status_ = PROCESS;
-        service_->RequestSend(&ctx_, &request_, &responder_, cq_, cq_, this);
+        service_->RequestSend(&ctx_, request_, &responder_, cq_, cq_, this);
     }
     else if (status_ == PROCESS) {
         new CallData(service_, cq_);

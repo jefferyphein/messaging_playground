@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <thread>
+#include <google/protobuf/arena.h>
 #include <grpcpp/grpcpp.h>
 
 #include "comms.grpc.pb.h"
@@ -116,10 +117,12 @@ typedef struct comms_receiver_t {
         void Proceed();
 
     private:
+        char *buffer_;
+        std::unique_ptr<::google::protobuf::Arena> arena_;
         ::comms::Comms::AsyncService *service_;
         ::grpc::ServerCompletionQueue *cq_;
         ::grpc::ServerContext ctx_;
-        ::comms::PacketBundle request_;
+        ::comms::PacketBundle *request_;
         ::comms::PacketResponse response_;
         ::grpc::ServerAsyncResponseWriter<::comms::PacketResponse> responder_;
         enum CallStatus { CREATE, PROCESS, FINISH };

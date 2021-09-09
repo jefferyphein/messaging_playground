@@ -7,3 +7,5 @@ __pycache__
 *_pb.rb
 *.pb.cc
 *.pb.h
+*.o
+*.so

@@ -7,3 +7,5 @@ table Packet {
 table PacketBundle {
     packet:[Packet];
 }
+
+root_type PacketBundle;
