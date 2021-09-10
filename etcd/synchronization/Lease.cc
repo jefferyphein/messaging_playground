@@ -37,7 +37,7 @@ Lease::Lease(std::string address, uv_loop_t *loop, int64_t ttl, int64_t heartbea
 
     // TODO: This should eventually be made into an async stream.
     // Create the stream reader/writer for keep alive.
-    lease_stream_ = stub_->LeaseKeepAlive(context_.get());
+    stream_ = stub_->LeaseKeepAlive(context_.get());
 
     // Create and start the keep alive timer.
     keep_alive_timer_.data = this;
@@ -65,7 +65,7 @@ void Lease::keep_alive() {
     ::etcdserverpb::LeaseKeepAliveRequest request;
     request.set_id(id_);
 
-    bool ok = lease_stream_->Write(request);
+    bool ok = stream_->Write(request);
 
     if (not ok) {
         // Write failed, do something.
@@ -73,7 +73,7 @@ void Lease::keep_alive() {
 
     // Read keep alive response.
     ::etcdserverpb::LeaseKeepAliveResponse response;
-    ok = lease_stream_->Read(&response);
+    ok = stream_->Read(&response);
     if (not ok) {
         // Read failed, do something.
     }
@@ -88,7 +88,7 @@ void Lease::revoke() {
     // Close the stream and sto the timer.
     {
         std::unique_lock<std::mutex> lck(writing_mtx_);
-        lease_stream_->WritesDone();
+        stream_->WritesDone();
         id_ = 0;
     }
     uv_timer_stop(&keep_alive_timer_);

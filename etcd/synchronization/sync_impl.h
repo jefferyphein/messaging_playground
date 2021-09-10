@@ -4,13 +4,21 @@
 #include <string>
 #include <memory>
 #include <thread>
+#include <atomic>
 #include <uv.h>
 
 #include "etcd.pb.h"
 #include "etcd.grpc.pb.h"
 
+#define STATE_INVALID (-1)
+#define STATE_INITIALIZED (0)
+
 class Lease;
+class Watch;
+
 using LeaseStream = ::grpc::ClientReaderWriter<::etcdserverpb::LeaseKeepAliveRequest, ::etcdserverpb::LeaseKeepAliveResponse>;
+using WatchStream = ::grpc::ClientAsyncReaderWriter<::etcdserverpb::WatchRequest, ::etcdserverpb::WatchResponse>;
+using watch_function = std::function<void(::etcdserverpb::WatchResponse&)>;
 
 void sync_set_error(char **error, std::string str);
 
@@ -31,12 +39,17 @@ typedef struct sync_t {
     void run_loop_();
     int set_state(uint32_t state);
     int get_state(int remote_id);
+    inline int my_state() const {
+        return state_[whoami_];
+    }
+    void watch_callback(::etcdserverpb::WatchResponse& response);
 
     uint32_t whoami_;
     uint32_t size_;
-    uint32_t state_;
+    std::vector<int> state_;
     sync_config_t conf_;
     std::unique_ptr<Lease> lease_;
+    std::unique_ptr<Watch> watch_;
     std::unique_ptr<std::thread> loop_thread_;
     uv_loop_t *loop_;
     std::unique_ptr<::etcdserverpb::KV::Stub> kv_stub_;
@@ -56,9 +69,37 @@ private:
     std::unique_ptr<::etcdserverpb::Lease::Stub> stub_;
     uv_timer_t keep_alive_timer_;
     std::unique_ptr<::grpc::ClientContext> context_;
-    std::unique_ptr<LeaseStream> lease_stream_;
+    std::unique_ptr<LeaseStream> stream_;
 
     std::mutex writing_mtx_;
 
     void keep_alive();
+};
+
+class Watch {
+public:
+    Watch(std::string address,
+          ::etcdserverpb::WatchCreateRequest& create_request,
+          watch_function watch_callback);
+    void proceed();
+    void cancel();
+    ~Watch();
+
+private:
+    void watch_thread(::etcdserverpb::WatchCreateRequest& create_request);
+    void watch_callback(::etcdserverpb::WatchResponse& response);
+
+    enum Status { START, START_DONE, CREATE, CREATE_DONE, UPDATE, CANCEL };
+
+    ::grpc::CompletionQueue cq_;
+    ::grpc::ClientContext context_;
+    ::etcdserverpb::WatchResponse response_;
+    std::unique_ptr<::etcdserverpb::Watch::Stub> stub_;
+    int64_t watch_id_;
+    Status status_;
+    ::etcdserverpb::WatchCreateRequest *create_request_;
+    std::unique_ptr<WatchStream> stream_;
+    std::atomic_bool canceling_;
+    std::unique_ptr<std::thread> thread_;
+    watch_function watch_callback_;
 };

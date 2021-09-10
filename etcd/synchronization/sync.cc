@@ -3,6 +3,7 @@
 #include <exception>
 #include <thread>
 #include <absl/strings/str_format.h>
+#include <absl/strings/numbers.h>
 #include <grpcpp/grpcpp.h>
 
 extern "C" {
@@ -28,8 +29,7 @@ void sync_config_t::destroy() {
 sync_t::sync_t(uint32_t whoami, uint32_t size)
     : whoami_(whoami)
     , size_(size)
-    , state_(0)
-    , conf_()
+    , state_(size, STATE_INVALID)
     , lease_(nullptr)
     , loop_(static_cast<uv_loop_t*>(malloc(sizeof(uv_loop_t))))
     , kv_stub_(nullptr)
@@ -55,16 +55,59 @@ void sync_t::destroy() {
 }
 
 void sync_t::initialize() {
+    std::string key_start = ::absl::StrFormat("%s0", conf_.key_prefix);
+    std::string key_end   = ::absl::StrFormat("%s%d", conf_.key_prefix, size_);
+
+    ::etcdserverpb::WatchCreateRequest watch_create_request;
+    watch_create_request.set_key(key_start);
+    watch_create_request.set_range_end(key_end);
+    watch_create_request.set_watch_id(0);
+
     kv_stub_ = ::etcdserverpb::KV::NewStub(::grpc::CreateChannel(conf_.remote_host, ::grpc::InsecureChannelCredentials()));
     uv_loop_init(loop_);
     lease_ = std::unique_ptr<Lease>(new Lease(conf_.remote_host, loop_, conf_.lease_ttl, conf_.lease_heartbeat));
+    watch_ = std::unique_ptr<Watch>(new Watch(conf_.remote_host, watch_create_request, [this](::etcdserverpb::WatchResponse& response){ this->watch_callback(response); }));
     loop_thread_ = std::unique_ptr<std::thread>(new std::thread(&sync_t::run_loop_, this));
 
-    set_state(0);
+    set_state(STATE_INITIALIZED);
 }
 
 void sync_t::run_loop_() {
     uv_run(loop_, UV_RUN_DEFAULT);
+}
+
+static inline bool is_digits(const std::string& s) {
+    return not s.empty() and s.find_first_not_of("0123456789") == std::string::npos;
+}
+
+static inline int update_state(const ::etcdserverpb::Event& event, size_t remote_id) {
+    if (event.type() == ::etcdserverpb::Event_EventType_PUT) {
+        if (is_digits(event.kv().value())) {
+            return strtoul(event.kv().value().c_str(), NULL, 0);
+        }
+        else {
+            return STATE_INVALID;
+        }
+    }
+    else if (event.type() == ::etcdserverpb::Event_EventType_DELETE) {
+        return STATE_INVALID;
+    }
+    return STATE_INVALID;
+}
+
+void sync_t::watch_callback(::etcdserverpb::WatchResponse& response) {
+    auto events = response.events();
+    for (const ::etcdserverpb::Event& event : events) {
+        if (event.kv().key().rfind(conf_.key_prefix, 0) == 0) {
+            const std::string& basename = event.kv().key().substr(conf_.key_prefix.size());
+            if (is_digits(basename)) {
+                uint32_t remote_id = strtoul(basename.c_str(), NULL, 0);
+                if (remote_id < size_) {
+                    state_[remote_id] = update_state(event, remote_id);
+                }
+            }
+        }
+    }
 }
 
 int sync_t::set_state(uint32_t state) {
@@ -81,14 +124,16 @@ int sync_t::set_state(uint32_t state) {
         throw std::runtime_error(::absl::StrFormat("RPC failed: %s", status.error_message()));
     }
 
-    state_ = state;
+    state_[whoami_] = state;
 
     return 0;
 }
 
 int sync_t::get_state(int remote_id) {
-    // TODO: Under construction.
-    return state_;
+    if (remote_id == -1) {
+        return *std::min_element(state_.begin(), state_.end());
+    }
+    return state_[remote_id];
 }
 
 int sync_create(sync_t **S,
@@ -109,7 +154,6 @@ int sync_configure(sync_t *S,
                    const char *key,
                    const char *value,
                    char **error) {
-    int len = strlen(value);
     if (strncmp(key, "remote-host", 11) == 0) {
         S->conf_.remote_host = value;
     }
@@ -138,13 +182,13 @@ int sync_initialize(sync_t *S,
 }
 
 int sync_set_state(sync_t *S,
-                   uint32_t state,
+                   int state,
                    char **error) {
-    if (state < S->state_) {
-        sync_set_error(error, ::absl::StrFormat("State can only increase: (desired) %d < %d (current)", state, S->state_));
+    if (state < S->my_state()) {
+        sync_set_error(error, ::absl::StrFormat("State can only increase: (desired) %d < %d (current)", state, S->my_state()));
         return 1;
     }
-    else if (state == S->state_) {
+    else if (state == S->my_state()) {
         // No change, do nothing.
         return 0;
     }
@@ -161,9 +205,9 @@ int sync_set_state(sync_t *S,
 int sync_get_state(sync_t *S,
                         int remote_id,
                         char **error) {
-    if (remote_id < -1 or remote_id >= S->size_) {
+    if (remote_id < -1 or remote_id >= static_cast<int>(S->size_)) {
         sync_set_error(error, ::absl::StrFormat("Remote ID must be in range [0,%d), or -1 to get global state", S->size_));
-        return 1;
+        return -2;
     }
 
     return S->get_state(remote_id);
@@ -174,4 +218,8 @@ int sync_destroy(sync_t *S,
     S->destroy();
     delete S;
     return 0;
+}
+
+void sync_cancel(sync_t *S) {
+    S->watch_->cancel();
 }

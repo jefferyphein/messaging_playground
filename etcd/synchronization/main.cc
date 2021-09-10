@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     int rc = 0;
 
     // Create synchronization object.
-    rc = sync_create(&S, 0, 1, &error);
+    rc = sync_create(&S, 0, 2, &error);
     SYNC_HANDLE_ERROR(rc, error);
 
     // Set configuration.
@@ -44,13 +44,14 @@ int main(int argc, char **argv) {
     SYNC_HANDLE_ERROR(rc, error);
 
     // Set state.
-    std::this_thread::sleep_for(std::chrono::seconds(2));
     rc = sync_set_state(S, 1, &error);
     SYNC_HANDLE_ERROR(rc, error);
-    std::this_thread::sleep_for(std::chrono::seconds(2));
     rc = sync_set_state(S, 2, &error);
     SYNC_HANDLE_ERROR(rc, error);
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    std::cout << sync_get_state(S, -1, &error) << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::cout << sync_get_state(S, -1, &error) << std::endl;
 
     // Destroy synchronization object.
     rc = sync_destroy(S, &error);

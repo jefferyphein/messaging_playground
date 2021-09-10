@@ -16,7 +16,7 @@ all: main
 main: main.cc libsync.so
 	$(CXX) -o $@ $< -lsync -L. $(CPPFLAGS) $(LDFLAGS)
 
-libsync.so: sync.o etcd.pb.o etcd.grpc.pb.o Lease.o
+libsync.so: sync.o etcd.pb.o etcd.grpc.pb.o Lease.o Watch.o
 	$(CXX) -shared -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
 
 %.o: %.cc sync.h sync_impl.h
