@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <thread>
 #include <google/protobuf/message_lite.h>
+#include <uv.h>
 
 extern "C" {
 #include "sync.h"
@@ -48,10 +49,6 @@ int main(int argc, char **argv) {
     SYNC_HANDLE_ERROR(rc, error);
     rc = sync_set_state(S, 2, &error);
     SYNC_HANDLE_ERROR(rc, error);
-
-    std::cout << sync_get_state(S, -1, &error) << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(10));
-    std::cout << sync_get_state(S, -1, &error) << std::endl;
 
     // Destroy synchronization object.
     rc = sync_destroy(S, &error);

@@ -13,6 +13,8 @@
 #define STATE_INVALID (-1)
 #define STATE_INITIALIZED (0)
 
+#define CANCEL_TAG (1)
+
 class Lease;
 class Watch;
 
@@ -89,17 +91,28 @@ private:
     void watch_thread(::etcdserverpb::WatchCreateRequest& create_request);
     void watch_callback(::etcdserverpb::WatchResponse& response);
 
-    enum Status { START, START_DONE, CREATE, CREATE_DONE, UPDATE, CANCEL };
+    enum StreamState {
+        START,
+        START_DONE,
+        CREATE,
+        CREATE_DONE,
+        UPDATE,
+        CANCELING,
+        CANCEL,
+        CANCEL_DONE,
+        WRITES_DONE_DONE,
+        INVALID
+    };
 
     ::grpc::CompletionQueue cq_;
     ::grpc::ClientContext context_;
     ::etcdserverpb::WatchResponse response_;
+    ::grpc::Status status_;
     std::unique_ptr<::etcdserverpb::Watch::Stub> stub_;
     int64_t watch_id_;
-    Status status_;
+    StreamState next_state_;
     ::etcdserverpb::WatchCreateRequest *create_request_;
     std::unique_ptr<WatchStream> stream_;
-    std::atomic_bool canceling_;
     std::unique_ptr<std::thread> thread_;
     watch_function watch_callback_;
 };

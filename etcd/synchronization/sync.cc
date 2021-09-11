@@ -41,6 +41,10 @@ void sync_t::destroy() {
         lease_->revoke();
     }
 
+    if (watch_) {
+        watch_->cancel();
+    }
+
     // Stop the loop, then join the loop thread.
     uv_stop(loop_);
     if (loop_thread_) {
