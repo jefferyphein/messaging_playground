@@ -45,7 +45,7 @@ Lease::Lease(std::string address, uv_loop_t *loop, int64_t ttl, int64_t heartbea
     auto keep_alive_cb = [](uv_timer_t* handle) {
         static_cast<Lease*>(handle->data)->keep_alive();
     };
-    uv_timer_start(&keep_alive_timer_, keep_alive_cb, heartbeat*1000, heartbeat*1000);
+    uv_timer_start(&keep_alive_timer_, keep_alive_cb, 0, heartbeat*1000);
 }
 
 Lease::~Lease() {
@@ -85,7 +85,7 @@ void Lease::revoke() {
 
     int64_t id = id_;
 
-    // Close the stream and sto the timer.
+    // Close the stream and stop the timer.
     {
         std::unique_lock<std::mutex> lck(writing_mtx_);
         stream_->WritesDone();
