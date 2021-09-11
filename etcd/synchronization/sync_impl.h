@@ -36,7 +36,7 @@ typedef struct sync_config_t {
 
 typedef struct sync_t {
     sync_t(uint32_t whoami, uint32_t size);
-    void initialize();
+    bool start();
     void destroy();
     void run_loop_();
     int set_state(uint32_t state);
@@ -55,6 +55,8 @@ typedef struct sync_t {
     std::unique_ptr<std::thread> loop_thread_;
     uv_loop_t *loop_;
     std::unique_ptr<::etcdserverpb::KV::Stub> kv_stub_;
+    std::atomic_bool started_;
+    std::mutex started_mtx_;
 } sync_t;
 
 class Lease {

@@ -10,7 +10,7 @@ int sync_create(sync_t **S, uint32_t local_id, uint32_t universe_size, char **er
 
 int sync_configure(sync_t *sync_t, const char *key, const char *value, char **error);
 
-int sync_initialize(sync_t *S, char **error);
+int sync_start(sync_t *S, char **error);
 
 int sync_set_state(sync_t *S, int state, char **error);
 

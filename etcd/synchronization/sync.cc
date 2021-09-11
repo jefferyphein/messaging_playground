@@ -33,6 +33,7 @@ sync_t::sync_t(uint32_t whoami, uint32_t size)
     , lease_(nullptr)
     , loop_(static_cast<uv_loop_t*>(malloc(sizeof(uv_loop_t))))
     , kv_stub_(nullptr)
+    , started_(false)
 {}
 
 void sync_t::destroy() {
@@ -58,7 +59,11 @@ void sync_t::destroy() {
     conf_.destroy();
 }
 
-void sync_t::initialize() {
+bool sync_t::start() {
+    // Ensure that multiple threads cannot call start simultaneously.
+    std::unique_lock<std::mutex> lck(started_mtx_);
+    if (started_) return true;
+
     std::string key_start = ::absl::StrFormat("%s0", conf_.key_prefix);
     std::string key_end   = ::absl::StrFormat("%s%d", conf_.key_prefix, size_);
 
@@ -74,6 +79,8 @@ void sync_t::initialize() {
     loop_thread_ = std::unique_ptr<std::thread>(new std::thread(&sync_t::run_loop_, this));
 
     set_state(STATE_INITIALIZED);
+    started_ = true;
+    return true;
 }
 
 void sync_t::run_loop_() {
@@ -173,16 +180,19 @@ int sync_configure(sync_t *S,
     return 0;
 }
 
-int sync_initialize(sync_t *S,
+int sync_start(sync_t *S,
                     char **error) {
     try {
-        S->initialize();
+        return S->start() ? 0 : 1;
     }
     catch (std::runtime_error& e) {
         sync_set_error(error, ::absl::StrFormat("Initialization failed: %s", e.what()));
         return 1;
     }
-    return 0;
+    catch (std::bad_alloc& e) {
+        sync_set_error(error, ::absl::StrFormat("Initialization failed: %s", e.what()));
+        return 1;
+    }
 }
 
 int sync_set_state(sync_t *S,

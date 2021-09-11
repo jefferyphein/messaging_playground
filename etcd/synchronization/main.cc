@@ -40,8 +40,8 @@ int main(int argc, char **argv) {
     rc = sync_configure(S, "key-prefix", "/driver/state/", &error);
     SYNC_HANDLE_ERROR(rc, error);
 
-    // Initialize synchronization.
-    rc = sync_initialize(S, &error);
+    // Start synchronization.
+    rc = sync_start(S, &error);
     SYNC_HANDLE_ERROR(rc, error);
 
     // Set state.
