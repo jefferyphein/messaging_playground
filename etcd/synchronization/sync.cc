@@ -53,6 +53,12 @@ void sync_t::destroy() {
         loop_thread_->join();
     }
 
+    // Shutdown the completion queue and join the thread.
+    if (cq_thread_) {
+        cq_.Shutdown();
+        cq_thread_->join();
+    }
+
     // Close and free the loop.
     uv_loop_close(loop_);
     free(loop_);
@@ -75,9 +81,18 @@ bool sync_t::start() {
 
     kv_stub_ = ::etcdserverpb::KV::NewStub(::grpc::CreateChannel(conf_.remote_host, ::grpc::InsecureChannelCredentials()));
     uv_loop_init(loop_);
-    lease_ = std::unique_ptr<Lease>(new Lease(conf_.remote_host, loop_, conf_.lease_ttl, conf_.lease_heartbeat));
-    watch_ = std::unique_ptr<Watch>(new Watch(conf_.remote_host, watch_create_request, [this](::etcdserverpb::WatchResponse& response){ this->watch_callback(response); }));
+    lease_ = std::unique_ptr<Lease>(
+        new Lease(conf_.remote_host,
+                  loop_,
+                  conf_.lease_ttl,
+                  conf_.lease_heartbeat));
+    watch_ = std::unique_ptr<Watch>(
+        new Watch(conf_.remote_host,
+                  watch_create_request,
+                  &cq_,
+                  [this](::etcdserverpb::WatchResponse& response){ this->watch_callback(response); }));
     loop_thread_ = std::unique_ptr<std::thread>(new std::thread(&sync_t::run_loop_, this));
+    cq_thread_ = std::unique_ptr<std::thread>(new std::thread(&sync_t::run_completion_queue_, this));
 
     set_state(STATE_INITIALIZED);
     started_ = true;
@@ -86,6 +101,14 @@ bool sync_t::start() {
 
 void sync_t::run_loop_() {
     uv_run(loop_, UV_RUN_DEFAULT);
+}
+
+void sync_t::run_completion_queue_() {
+    void *tag;
+    bool ok = false;
+    while (cq_.Next(&tag, &ok)) {
+        static_cast<AsyncEtcd*>(tag)->proceed();
+    }
 }
 
 static inline bool is_digits(const std::string& s) {

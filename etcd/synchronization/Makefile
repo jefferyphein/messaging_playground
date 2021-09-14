@@ -1,6 +1,6 @@
 CXX = g++
-CPPFLAGS += `pkg-config --cflags protobuf grpc` -std=c++11 -g -O3 -fPIC
-LDFLAGS += -L/usr/local/lib `pkg-config --libs protobuf grpc++ googleapis_cpp_api_annotations_protos` -luv
+CPPFLAGS += `pkg-config --cflags protobuf grpc libuv` -std=c++11 -g -O3 -fPIC
+LDFLAGS += -L/usr/local/lib `pkg-config --libs protobuf grpc++ googleapis_cpp_api_annotations_protos libuv`
 
 PROTOC = protoc
 

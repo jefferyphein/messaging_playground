@@ -15,8 +15,6 @@
 #define STATE_INVALID (-1)
 #define STATE_INITIALIZED (0)
 
-#define CANCEL_TAG (1)
-
 class Lease;
 class Watch;
 
@@ -41,6 +39,7 @@ typedef struct sync_t {
     bool start();
     void destroy();
     void run_loop_();
+    void run_completion_queue_();
     int set_state(uint32_t state);
     int get_state(int remote_id);
     inline int my_state() const {
@@ -57,7 +56,9 @@ typedef struct sync_t {
     std::unique_ptr<Lease> lease_;
     std::unique_ptr<Watch> watch_;
     std::unique_ptr<std::thread> loop_thread_;
+    std::unique_ptr<std::thread> cq_thread_;
     uv_loop_t *loop_;
+    ::grpc::CompletionQueue cq_;
     std::unique_ptr<::etcdserverpb::KV::Stub> kv_stub_;
     std::atomic_bool started_;
     std::mutex started_mtx_;
@@ -67,11 +68,19 @@ typedef struct sync_t {
     std::mutex global_state_change_mtx_;
 } sync_t;
 
-class Lease {
+class AsyncEtcd {
+public:
+    AsyncEtcd() = default;
+
+    virtual void proceed() = 0;
+};
+
+class Lease: public AsyncEtcd {
 public:
     Lease(std::string address, uv_loop_t *loop, int64_t ttl, int64_t heartbeat);
     ~Lease();
     void revoke();
+    void proceed() override;
     inline int64_t id() const {
         return id_;
     }
@@ -88,14 +97,14 @@ private:
     void keep_alive();
 };
 
-class Watch {
+class Watch: public AsyncEtcd {
 public:
     Watch(std::string address,
           ::etcdserverpb::WatchCreateRequest& create_request,
+          ::grpc::CompletionQueue *cq,
           watch_function watch_callback);
-    void proceed();
+    void proceed() override;
     void cancel();
-    ~Watch();
 
 private:
     void watch_thread(::etcdserverpb::WatchCreateRequest& create_request);
@@ -107,14 +116,12 @@ private:
         CREATE,
         CREATE_DONE,
         UPDATE,
-        CANCELING,
-        CANCEL,
         CANCEL_DONE,
         WRITES_DONE_DONE,
         INVALID
     };
 
-    ::grpc::CompletionQueue cq_;
+    ::grpc::CompletionQueue *cq_;
     ::grpc::ClientContext context_;
     ::etcdserverpb::WatchResponse response_;
     ::grpc::Status status_;
@@ -123,6 +130,7 @@ private:
     StreamState next_state_;
     ::etcdserverpb::WatchCreateRequest *create_request_;
     std::unique_ptr<WatchStream> stream_;
-    std::unique_ptr<std::thread> thread_;
     watch_function watch_callback_;
+
+    std::atomic_bool canceling_;
 };

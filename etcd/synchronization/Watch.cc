@@ -7,40 +7,18 @@ extern "C" {
 
 Watch::Watch(std::string address,
              ::etcdserverpb::WatchCreateRequest& create_request,
+             ::grpc::CompletionQueue *cq,
              watch_function watch_callback)
-    : stub_(::etcdserverpb::Watch::NewStub(::grpc::CreateChannel(address, ::grpc::InsecureChannelCredentials())))
+    : cq_(cq)
+    , stub_(::etcdserverpb::Watch::NewStub(::grpc::CreateChannel(address, ::grpc::InsecureChannelCredentials())))
     , watch_id_(-1)
     , next_state_(START)
     , create_request_(new ::etcdserverpb::WatchCreateRequest(create_request))
     , watch_callback_(watch_callback)
+    , canceling_(false)
 {
-    stream_ = stub_->PrepareAsyncWatch(&context_, &cq_);
-    thread_ = std::unique_ptr<std::thread>(new std::thread(&Watch::watch_thread, this, std::ref(create_request)));
-}
-
-void Watch::watch_thread(::etcdserverpb::WatchCreateRequest& create_request) {
+    stream_ = stub_->PrepareAsyncWatch(&context_, cq_);
     proceed();
-
-    void *tag;
-    bool ok = false;
-    while (cq_.Next(&tag, &ok)) {
-        if (reinterpret_cast<uint64_t>(tag) == CANCEL_TAG) {
-            next_state_ = CANCELING;
-            proceed();
-        }
-        else if (tag == this) {
-            proceed();
-        }
-    }
-
-    watch_id_ = -1;
-}
-
-Watch::~Watch() {
-    if (thread_) {
-        cancel();
-        thread_->join();
-    }
 }
 
 void Watch::proceed() {
@@ -71,36 +49,34 @@ void Watch::proceed() {
             stream_->Read(&response_, this);
             break;
         case UPDATE: {
-            // Process this response.
-            watch_callback_(response_);
-            stream_->Read(&response_, this);
+            if (canceling_ and watch_id_ != -1) {
+                // Write a request to cancel the watch.
+                ::etcdserverpb::WatchRequest request;
+                auto *cancel_request = request.mutable_cancel_request();
+                cancel_request->set_watch_id(watch_id_);
+                next_state_ = CANCEL_DONE;
+                stream_->Write(request, this);
+            }
+            else {
+                // Process the request.
+                watch_callback_(response_);
+                stream_->Read(&response_, this);
+            }
             break;
         }
-        case CANCELING: {
-            // Write a request to cancel the watch.
-            ::etcdserverpb::WatchRequest request;
-            auto *cancel_request = request.mutable_cancel_request();
-            cancel_request->set_watch_id(watch_id_);
-            next_state_ = CANCEL;
-            stream_->Write(request, this);
-            break;
-        }
-        case CANCEL:
-            // The cancel request was written, wait for server response.
-            next_state_ = CANCEL_DONE;
-            break;
         case CANCEL_DONE:
-            // Server responded to cancel request.
+            // Process requests until we get confirmation that the remote end
+            // canceled the watch.
             if (response_.canceled()) {
                 watch_id_ = -1;
+                next_state_ = WRITES_DONE_DONE;
+                stream_->WritesDone(this);
             }
-            next_state_ = WRITES_DONE_DONE;
-            stream_->WritesDone(this);
             break;
         case WRITES_DONE_DONE:
             // Stream acknowledged that no more writes are possible.
-            cq_.Shutdown();
             next_state_ = INVALID;
+            //cq_->Shutdown();
             break;
     }
 }
@@ -110,6 +86,7 @@ void Watch::cancel() {
 
     // Place an alarm into the completion queue indicating our intention to
     // cancel the watch.
+    canceling_ = true;
     ::grpc::Alarm alarm;
-    alarm.Set(&cq_, gpr_now(gpr_clock_type::GPR_CLOCK_REALTIME), (void*)CANCEL_TAG);
+    alarm.Set(cq_, gpr_now(gpr_clock_type::GPR_CLOCK_REALTIME), this);
 }

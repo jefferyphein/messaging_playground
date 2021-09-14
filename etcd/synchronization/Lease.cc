@@ -105,3 +105,7 @@ void Lease::revoke() {
     // halt. Failure here just means that the lease revocation will just be
     // slightly delayed.
 }
+
+void Lease::proceed() {
+
+}
