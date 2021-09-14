@@ -34,6 +34,7 @@ sync_t::sync_t(uint32_t whoami, uint32_t size)
     , loop_(static_cast<uv_loop_t*>(malloc(sizeof(uv_loop_t))))
     , kv_stub_(nullptr)
     , started_(false)
+    , global_state_(STATE_INVALID)
 {}
 
 void sync_t::destroy() {
@@ -106,6 +107,16 @@ static inline int update_state(const ::etcdserverpb::Event& event, size_t remote
     return STATE_INVALID;
 }
 
+void sync_t::global_state_change_check() {
+    int state = *std::min_element(state_.begin(), state_.end());
+    std::unique_lock<std::mutex> lck(global_state_change_mtx_);
+    if (state != global_state_.load()) {
+        global_state_ = state;
+        global_state_change_cv_.notify_all();
+        std::cout << "global state change -> " << state << std::endl;
+    }
+}
+
 void sync_t::watch_callback(::etcdserverpb::WatchResponse& response) {
     auto events = response.events();
     for (const ::etcdserverpb::Event& event : events) {
@@ -119,6 +130,10 @@ void sync_t::watch_callback(::etcdserverpb::WatchResponse& response) {
             }
         }
     }
+
+    // Check to see if global state has changed once we're done processing all
+    // of the Watch events.
+    global_state_change_check();
 }
 
 int sync_t::set_state(uint32_t state) {
@@ -145,6 +160,13 @@ int sync_t::get_state(int remote_id) {
         return *std::min_element(state_.begin(), state_.end());
     }
     return state_[remote_id];
+}
+
+void sync_t::wait_for_global_state(int state) {
+    std::unique_lock<std::mutex> lck(global_state_change_mtx_);
+    while (global_state_.load() < state) {
+        global_state_change_cv_.wait(lck);
+    }
 }
 
 int sync_create(sync_t **S,
@@ -176,6 +198,10 @@ int sync_configure(sync_t *S,
     }
     else if (strncmp(key, "key-prefix", 10) == 0) {
         S->conf_.key_prefix = value;
+    }
+    else {
+        sync_set_error(error, ::absl::StrFormat("Configuration failed: unrecognized key '%s'", key));
+        return 1;
     }
     return 0;
 }
@@ -227,13 +253,16 @@ int sync_get_state(sync_t *S,
     return S->get_state(remote_id);
 }
 
+int sync_wait_for_global_state(sync_t *S,
+                               int desired_state,
+                               char **error) {
+    S->wait_for_global_state(desired_state);
+    return 0;
+}
+
 int sync_destroy(sync_t *S,
                  char **error) {
     S->destroy();
     delete S;
     return 0;
-}
-
-void sync_cancel(sync_t *S) {
-    S->watch_->cancel();
 }

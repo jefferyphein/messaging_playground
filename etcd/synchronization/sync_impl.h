@@ -5,6 +5,8 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
+#include <mutex>
 #include <uv.h>
 
 #include "etcd.pb.h"
@@ -44,7 +46,9 @@ typedef struct sync_t {
     inline int my_state() const {
         return state_[whoami_];
     }
+    void global_state_change_check();
     void watch_callback(::etcdserverpb::WatchResponse& response);
+    void wait_for_global_state(int state);
 
     uint32_t whoami_;
     uint32_t size_;
@@ -57,6 +61,10 @@ typedef struct sync_t {
     std::unique_ptr<::etcdserverpb::KV::Stub> kv_stub_;
     std::atomic_bool started_;
     std::mutex started_mtx_;
+
+    std::atomic<int> global_state_;
+    std::condition_variable global_state_change_cv_;
+    std::mutex global_state_change_mtx_;
 } sync_t;
 
 class Lease {

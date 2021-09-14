@@ -50,6 +50,10 @@ int main(int argc, char **argv) {
     rc = sync_set_state(S, 2, &error);
     SYNC_HANDLE_ERROR(rc, error);
 
+    // Wait for global state to reach state 3.
+    rc = sync_wait_for_global_state(S, 3, &error);
+    SYNC_HANDLE_ERROR(rc, error);
+
     // Destroy synchronization object.
     rc = sync_destroy(S, &error);
     SYNC_HANDLE_ERROR(rc, error);

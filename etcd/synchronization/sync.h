@@ -16,10 +16,8 @@ int sync_set_state(sync_t *S, int state, char **error);
 
 int sync_get_state(sync_t *S, int remote_id, char **error);
 
-int sync_wait_for_global_state(sync_t *S, uint32_t desired_state, char **error);
+int sync_wait_for_global_state(sync_t *S, int desired_state, char **error);
 
 int sync_destroy(sync_t *S, char **error);
-
-void sync_cancel(sync_t *S);
 
 #endif // __SYNC_H_
