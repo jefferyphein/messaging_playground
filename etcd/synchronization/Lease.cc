@@ -34,6 +34,7 @@ Lease::Lease(std::string address, uv_loop_t *loop, ::grpc::CompletionQueue *cq, 
 
     // Create the asynchronous stream reader/writer for keep alive.
     stream_ = stub_->PrepareAsyncLeaseKeepAlive(&context_, cq_);
+    proceed();
 
     // Create and start the keep alive timer.
     keep_alive_timer_.data = this;
@@ -42,7 +43,6 @@ Lease::Lease(std::string address, uv_loop_t *loop, ::grpc::CompletionQueue *cq, 
         static_cast<Lease*>(handle->data)->keep_alive();
     };
     uv_timer_start(&keep_alive_timer_, keep_alive_cb, 0, heartbeat*1000);
-    proceed();
 }
 
 void Lease::proceed() {

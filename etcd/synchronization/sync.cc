@@ -78,6 +78,12 @@ bool sync_t::start() {
     std::unique_lock<std::mutex> lck(started_mtx_);
     if (started_) return true;
 
+    if (conf_.lease_heartbeat >= conf_.lease_ttl) {
+        throw std::runtime_error(
+            ::absl::StrFormat("Lease error: heartbeat (%d) must be strictly less than time-to-live (%d)",
+                conf_.lease_heartbeat, conf_.lease_ttl));
+    }
+
     std::string key_start = ::absl::StrFormat("%s0", conf_.key_prefix);
     std::string key_end   = ::absl::StrFormat("%s%d", conf_.key_prefix, size_);
 
