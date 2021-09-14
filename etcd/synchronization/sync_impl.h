@@ -18,7 +18,7 @@
 class Lease;
 class Watch;
 
-using LeaseStream = ::grpc::ClientReaderWriter<::etcdserverpb::LeaseKeepAliveRequest, ::etcdserverpb::LeaseKeepAliveResponse>;
+using LeaseKeepAliveStream = ::grpc::ClientAsyncReaderWriter<::etcdserverpb::LeaseKeepAliveRequest, ::etcdserverpb::LeaseKeepAliveResponse>;
 using WatchStream = ::grpc::ClientAsyncReaderWriter<::etcdserverpb::WatchRequest, ::etcdserverpb::WatchResponse>;
 using watch_function = std::function<void(::etcdserverpb::WatchResponse&)>;
 
@@ -32,6 +32,7 @@ typedef struct sync_config_t {
     int64_t lease_ttl;
     int64_t lease_heartbeat;
     std::string key_prefix;
+    bool shutdown_protobuf_on_destroy;
 } sync_config_t;
 
 typedef struct sync_t {
@@ -68,17 +69,16 @@ typedef struct sync_t {
     std::mutex global_state_change_mtx_;
 } sync_t;
 
-class AsyncEtcd {
+class AsyncEtcdBase {
 public:
-    AsyncEtcd() = default;
+    AsyncEtcdBase() = default;
 
     virtual void proceed() = 0;
 };
 
-class Lease: public AsyncEtcd {
+class Lease: public AsyncEtcdBase {
 public:
-    Lease(std::string address, uv_loop_t *loop, int64_t ttl, int64_t heartbeat);
-    ~Lease();
+    Lease(std::string address, uv_loop_t *loop, ::grpc::CompletionQueue *cq, int64_t ttl, int64_t heartbeat);
     void revoke();
     void proceed() override;
     inline int64_t id() const {
@@ -86,18 +86,32 @@ public:
     }
 
 private:
+    void keep_alive();
+
+    enum LeaseKeepAliveStreamState {
+        START,
+        START_DONE,
+        READY_TO_WRITE,
+        WRITE_DONE,
+        READ_DONE,
+        WRITES_DONE_DONE,
+        INVALID
+    };
+
     int64_t id_;
+    ::grpc::CompletionQueue *cq_;
+    int64_t heartbeat_;
     std::unique_ptr<::etcdserverpb::Lease::Stub> stub_;
     uv_timer_t keep_alive_timer_;
-    std::unique_ptr<::grpc::ClientContext> context_;
-    std::unique_ptr<LeaseStream> stream_;
-
+    ::grpc::ClientContext context_;
+    std::unique_ptr<LeaseKeepAliveStream> stream_;
     std::mutex writing_mtx_;
-
-    void keep_alive();
+    std::condition_variable writing_cv_;
+    LeaseKeepAliveStreamState next_state_;
+    ::etcdserverpb::LeaseKeepAliveResponse response_;
 };
 
-class Watch: public AsyncEtcd {
+class Watch: public AsyncEtcdBase {
 public:
     Watch(std::string address,
           ::etcdserverpb::WatchCreateRequest& create_request,
@@ -110,7 +124,7 @@ private:
     void watch_thread(::etcdserverpb::WatchCreateRequest& create_request);
     void watch_callback(::etcdserverpb::WatchResponse& response);
 
-    enum StreamState {
+    enum WatchStreamState {
         START,
         START_DONE,
         CREATE,
@@ -127,7 +141,7 @@ private:
     ::grpc::Status status_;
     std::unique_ptr<::etcdserverpb::Watch::Stub> stub_;
     int64_t watch_id_;
-    StreamState next_state_;
+    WatchStreamState next_state_;
     ::etcdserverpb::WatchCreateRequest *create_request_;
     std::unique_ptr<WatchStream> stream_;
     watch_function watch_callback_;

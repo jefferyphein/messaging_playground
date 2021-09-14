@@ -76,7 +76,9 @@ void Watch::proceed() {
         case WRITES_DONE_DONE:
             // Stream acknowledged that no more writes are possible.
             next_state_ = INVALID;
-            //cq_->Shutdown();
+            break;
+        case INVALID:
+            throw std::runtime_error("Watch is in invalid state.");
             break;
     }
 }

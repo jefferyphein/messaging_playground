@@ -9,16 +9,13 @@ extern "C" {
 }
 #include "sync_impl.h"
 
-Lease::Lease(std::string address, uv_loop_t *loop, int64_t ttl, int64_t heartbeat)
+Lease::Lease(std::string address, uv_loop_t *loop, ::grpc::CompletionQueue *cq, int64_t ttl, int64_t heartbeat)
         : id_(0)
+        , cq_(cq)
+        , heartbeat_(heartbeat)
         , stub_(::etcdserverpb::Lease::NewStub(::grpc::CreateChannel(address, ::grpc::InsecureChannelCredentials())))
-        , context_(new ::grpc::ClientContext)
+        , next_state_(START)
 {
-    // If heartbeat is >= ttl, set heartbeat to half the ttl.
-    if (heartbeat >= ttl) {
-        heartbeat = std::max(1ll, heartbeat/2ll);
-    }
-
     // Request a lease.
     ::etcdserverpb::LeaseGrantRequest request;
     request.set_id(0);
@@ -35,9 +32,8 @@ Lease::Lease(std::string address, uv_loop_t *loop, int64_t ttl, int64_t heartbea
     // Grab the lease ID from the response.
     id_ = response.id();
 
-    // TODO: This should eventually be made into an async stream.
-    // Create the stream reader/writer for keep alive.
-    stream_ = stub_->LeaseKeepAlive(context_.get());
+    // Create the asynchronous stream reader/writer for keep alive.
+    stream_ = stub_->PrepareAsyncLeaseKeepAlive(&context_, cq_);
 
     // Create and start the keep alive timer.
     keep_alive_timer_.data = this;
@@ -46,36 +42,53 @@ Lease::Lease(std::string address, uv_loop_t *loop, int64_t ttl, int64_t heartbea
         static_cast<Lease*>(handle->data)->keep_alive();
     };
     uv_timer_start(&keep_alive_timer_, keep_alive_cb, 0, heartbeat*1000);
+    proceed();
 }
 
-Lease::~Lease() {
-    // Revoke an outstanding lease, if revoke() wasn't called directly.
-    if (id_) {
-        revoke();
+void Lease::proceed() {
+    switch (next_state_) {
+        case START:
+            // Now that the stream is prepared, start it.
+            next_state_ = START_DONE;
+            stream_->StartCall(this);
+            break;
+        case START_DONE: {
+            // Now that the stream is started, indicate ready to write.
+            next_state_ = READY_TO_WRITE;
+            writing_cv_.notify_all();
+            break;
+        }
+        case WRITE_DONE:
+            // Writing has completed, read response response.
+            next_state_ = READ_DONE;
+            stream_->Read(&response_, this);
+            break;
+        case READ_DONE:
+            // Read has completed, indicate ready to write.
+            next_state_ = READY_TO_WRITE;
+            writing_cv_.notify_all();
+            break;
+        case WRITES_DONE_DONE:
+            // WritesDone() has completed, place into invalid state.
+            next_state_ = INVALID;
+            break;
+        case INVALID:
+            throw std::runtime_error("Lease is in invalid state.");
+            break;
     }
 }
 
 void Lease::keep_alive() {
-    std::unique_lock<std::mutex> lck(writing_mtx_);
-
     // Nothing to do if lease has been revoked.
     if (id_ == 0) return;
 
-    // Send keep alive request.
-    ::etcdserverpb::LeaseKeepAliveRequest request;
-    request.set_id(id_);
+    if (next_state_ == READY_TO_WRITE) {
+        // Send keep alive request, only if in READY_TO_WRITE state.
+        ::etcdserverpb::LeaseKeepAliveRequest request;
+        request.set_id(id_);
 
-    bool ok = stream_->Write(request);
-
-    if (not ok) {
-        // Write failed, do something.
-    }
-
-    // Read keep alive response.
-    ::etcdserverpb::LeaseKeepAliveResponse response;
-    ok = stream_->Read(&response);
-    if (not ok) {
-        // Read failed, do something.
+        next_state_ = WRITE_DONE;
+        stream_->Write(request, this);
     }
 }
 
@@ -86,11 +99,14 @@ void Lease::revoke() {
     int64_t id = id_;
 
     // Close the stream and stop the timer.
-    {
-        std::unique_lock<std::mutex> lck(writing_mtx_);
-        stream_->WritesDone();
-        id_ = 0;
+    std::unique_lock<std::mutex> lck(writing_mtx_);
+    if (next_state_ != READY_TO_WRITE) {
+        writing_cv_.wait(lck);
     }
+    next_state_ = WRITES_DONE_DONE;
+    stream_->WritesDone(this);
+
+    id_ = 0;
     uv_timer_stop(&keep_alive_timer_);
 
     // Revoke the lease.
@@ -104,8 +120,4 @@ void Lease::revoke() {
     // will get automatically revoked on the remote end once the keep-alives
     // halt. Failure here just means that the lease revocation will just be
     // slightly delayed.
-}
-
-void Lease::proceed() {
-
 }

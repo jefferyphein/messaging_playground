@@ -21,6 +21,7 @@ sync_config_t::sync_config_t()
     : lease_ttl(15)
     , lease_heartbeat(5)
     , key_prefix("/sync/state/")
+    , shutdown_protobuf_on_destroy(false)
 {}
 
 void sync_config_t::destroy() {
@@ -63,6 +64,12 @@ void sync_t::destroy() {
     uv_loop_close(loop_);
     free(loop_);
 
+    // Shutdown the Protobuf library.
+    if (conf_.shutdown_protobuf_on_destroy) {
+        ::google::protobuf::ShutdownProtobufLibrary();
+        std::cout << "SHUTDOWN" << std::endl;
+    }
+
     conf_.destroy();
 }
 
@@ -81,16 +88,21 @@ bool sync_t::start() {
 
     kv_stub_ = ::etcdserverpb::KV::NewStub(::grpc::CreateChannel(conf_.remote_host, ::grpc::InsecureChannelCredentials()));
     uv_loop_init(loop_);
+
     lease_ = std::unique_ptr<Lease>(
         new Lease(conf_.remote_host,
                   loop_,
+                  &cq_,
                   conf_.lease_ttl,
                   conf_.lease_heartbeat));
+
     watch_ = std::unique_ptr<Watch>(
         new Watch(conf_.remote_host,
                   watch_create_request,
                   &cq_,
                   [this](::etcdserverpb::WatchResponse& response){ this->watch_callback(response); }));
+
+    // Start the loop thread *after* the lease and watch have been constructed.
     loop_thread_ = std::unique_ptr<std::thread>(new std::thread(&sync_t::run_loop_, this));
     cq_thread_ = std::unique_ptr<std::thread>(new std::thread(&sync_t::run_completion_queue_, this));
 
@@ -107,7 +119,7 @@ void sync_t::run_completion_queue_() {
     void *tag;
     bool ok = false;
     while (cq_.Next(&tag, &ok)) {
-        static_cast<AsyncEtcd*>(tag)->proceed();
+        static_cast<AsyncEtcdBase*>(tag)->proceed();
     }
 }
 
@@ -221,6 +233,9 @@ int sync_configure(sync_t *S,
     }
     else if (strncmp(key, "key-prefix", 10) == 0) {
         S->conf_.key_prefix = value;
+    }
+    else if (strncmp(key, "shutdown-protobuf-on-destroy", 28) == 0) {
+        S->conf_.shutdown_protobuf_on_destroy = (int64_t)strtol(value, NULL, 0) != 0;
     }
     else {
         sync_set_error(error, ::absl::StrFormat("Configuration failed: unrecognized key '%s'", key));

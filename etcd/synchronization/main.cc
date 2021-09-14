@@ -39,6 +39,8 @@ int main(int argc, char **argv) {
     SYNC_HANDLE_ERROR(rc, error);
     rc = sync_configure(S, "key-prefix", "/driver/state/", &error);
     SYNC_HANDLE_ERROR(rc, error);
+    rc = sync_configure(S, "shutdown-protobuf-on-destroy", "1", &error);
+    SYNC_HANDLE_ERROR(rc, error);
 
     // Start synchronization.
     rc = sync_start(S, &error);
@@ -57,8 +59,6 @@ int main(int argc, char **argv) {
     // Destroy synchronization object.
     rc = sync_destroy(S, &error);
     SYNC_HANDLE_ERROR(rc, error);
-
-    ::google::protobuf::ShutdownProtobufLibrary();
 
     return EXIT_SUCCESS;
 }
