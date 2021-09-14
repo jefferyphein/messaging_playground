@@ -67,7 +67,6 @@ void sync_t::destroy() {
     // Shutdown the Protobuf library.
     if (conf_.shutdown_protobuf_on_destroy) {
         ::google::protobuf::ShutdownProtobufLibrary();
-        std::cout << "SHUTDOWN" << std::endl;
     }
 
     conf_.destroy();
@@ -91,6 +90,7 @@ bool sync_t::start() {
     watch_create_request.set_key(key_start);
     watch_create_request.set_range_end(key_end);
     watch_create_request.set_watch_id(0);
+    watch_create_request.set_start_revision(1);
 
     kv_stub_ = ::etcdserverpb::KV::NewStub(::grpc::CreateChannel(conf_.remote_host, ::grpc::InsecureChannelCredentials()));
     uv_loop_init(loop_);
