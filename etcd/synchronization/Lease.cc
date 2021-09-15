@@ -106,8 +106,10 @@ void Lease::revoke() {
     next_state_ = WRITES_DONE_DONE;
     stream_->WritesDone(this);
 
+    // Reset the lease id, stop the timer, and close its handle.
     id_ = 0;
     uv_timer_stop(&keep_alive_timer_);
+    uv_close((uv_handle_t*)&keep_alive_timer_, [](uv_handle_t*){});
 
     // Revoke the lease.
     ::etcdserverpb::LeaseRevokeRequest request;

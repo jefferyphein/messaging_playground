@@ -44,6 +44,7 @@ void sync_t::destroy() {
         lease_->revoke();
     }
 
+    // Cancel the watch if necessary.
     if (watch_) {
         watch_->cancel();
     }
@@ -61,7 +62,13 @@ void sync_t::destroy() {
     }
 
     // Close and free the loop.
-    uv_loop_close(loop_);
+    while (uv_loop_close(loop_) == UV_EBUSY) {
+        // Close all outstanding handles causing the busy status.
+        uv_walk(loop_, [](uv_handle_t* handle, void *){ uv_close(handle, [](uv_handle_t*){}); }, NULL);
+
+        // Restart the loop so call the above callbacks get called.
+        uv_run(loop_, UV_RUN_DEFAULT);
+    }
     free(loop_);
 
     // Shutdown the Protobuf library.
