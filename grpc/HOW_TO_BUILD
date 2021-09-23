@@ -1,0 +1,51 @@
+HOW TO BUILD GRPC
+
+abseil-cpp
+-------------------
+git clone git@github.com:abseil/abseil-cpp.git
+cd abseil-cpp
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+make -j8
+make install
+
+c-ares
+------
+git clone git@github.com:c-ares/c-ares.git
+cd c-ares
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCARES_STATIC=ON -DCARES_SHARED=OFF
+make -j8
+make install
+
+protobuf
+--------
+git clone git@github.com:protocolbuffers/protobuf.git
+cd protobuf/cmake
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+make -j8
+make install
+
+re2
+---
+git clone git@github.com:google/re2.git
+cd re2
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+make -j8
+make install
+
+grpc
+----
+git clone git@github.com:grpc/grpc.git
+cd grpc
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DgRPC_ABSL_PROVIDER=package -DgRPC_CARES_PROVIDER=package -DgRPC_RE2_PROVIDER=package -DgRPC_PROTOBUF_PROVIDER=package -DgRPC_SSL_PROVIDER=package -DgRPC_ZLIB_PROVIDER=package -DOPENSSL_INCLUDE_DIR=/usr/include -DZLIB_INCLUDE_DIR=/usr/include
+make -j8
+make install
