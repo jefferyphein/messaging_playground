@@ -29,12 +29,12 @@ service KV {
     };
   }
 
-  // Compact compacts the event history in the etcd key-value store. The key-value
-  // store should be periodically compacted or the event history will continue to grow
-  // indefinitely.
-  rpc Compact(CompactionRequest) returns (CompactionResponse) {
+  // DeleteRange deletes the given range from the key-value store.
+  // A delete request increments the revision of the key-value store
+  // and generates a delete event in the event history for every deleted key.
+  rpc DeleteRange(DeleteRangeRequest) returns (DeleteRangeResponse) {
       option (google.api.http) = {
-        post: "/v3/kv/compaction"
+        post: "/v3/kv/deleterange"
         body: "*"
     };
   }
@@ -239,23 +239,31 @@ message PutResponse {
   KeyValue prev_kv = 2 [(etcd_version_field)="3.1"];
 }
 
-// CompactionRequest compacts the key-value store up to a given revision. All superseded keys
-// with a revision less than the compaction revision will be removed.
-message CompactionRequest {
+message DeleteRangeRequest {
   option (etcd_version_msg) = "3.0";
 
-  // revision is the key-value store revision for the compaction operation.
-  int64 revision = 1;
-  // physical is set so the RPC will wait until the compaction is physically
-  // applied to the local database such that compacted entries are totally
-  // removed from the backend database.
-  bool physical = 2;
+  // key is the first key to delete in the range.
+  bytes key = 1;
+  // range_end is the key following the last key to delete for the range [key, range_end).
+  // If range_end is not given, the range is defined to contain only the key argument.
+  // If range_end is one bit larger than the given key, then the range is all the keys
+  // with the prefix (the given key).
+  // If range_end is '\0', the range is all keys greater than or equal to the key argument.
+  bytes range_end = 2;
+
+  // If prev_kv is set, etcd gets the previous key-value pairs before deleting it.
+  // The previous key-value pairs will be returned in the delete response.
+  bool prev_kv = 3 [(etcd_version_field)="3.1"];
 }
 
-message CompactionResponse {
+message DeleteRangeResponse {
   option (etcd_version_msg) = "3.0";
 
   ResponseHeader header = 1;
+  // deleted is the number of keys deleted by the delete range request.
+  int64 deleted = 2;
+  // if prev_kv is set in the request, the previous key-value pairs will be returned.
+  repeated KeyValue prev_kvs = 3 [(etcd_version_field)="3.1"];
 }
 
 message KeyValue {

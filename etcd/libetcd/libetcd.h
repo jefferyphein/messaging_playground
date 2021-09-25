@@ -59,8 +59,9 @@ class Response {
 public:
     Response() = delete;
     Response(::grpc::Status& status);
-    Response(::grpc::Status& status, ::etcdserverpb::RangeResponse& response, bool is_range = false);
+    Response(::grpc::Status& status, ::etcdserverpb::RangeResponse& response);
     Response(::grpc::Status& status, ::etcdserverpb::PutResponse& response);
+    Response(::grpc::Status& status, ::etcdserverpb::DeleteRangeResponse& response);
 
     size_t size() const { return values_.size(); }
     const Values& values() const { return values_; }
@@ -68,8 +69,10 @@ public:
     const Value& value(size_t index = 0) const;
     Value& value(size_t index = 0);
 
-    const Value& prev_value() const { return prev_value_; }
-    Value& prev_value() { return prev_value_; }
+    const Values& prev_values() const { return prev_values_; }
+    Values& prev_values() { return prev_values_; }
+    const Value& prev_value(size_t index = 0) const { return prev_values_.at(index); }
+    Value& prev_value(size_t index = 0) { return prev_values_.at(index); }
 
     bool ok() const;
     std::string error_message() const { return error_message_; }
@@ -78,15 +81,20 @@ public:
 
 private:
     Values values_;
-    Value prev_value_;
+    Values prev_values_;
     std::string error_message_;
     int error_code_;
-    bool is_range_;
+};
+
+class Watch {
+public:
+    Watch() = delete;
+    Watch(std::string key, std::string range_end = "");
 };
 
 class Future {
 public:
-    Future(bool is_range = false);
+    Future();
     Response get();
     void wait() const;
     void set_value(::grpc::Status& status);
@@ -94,10 +102,12 @@ public:
                    ::etcdserverpb::RangeResponse& response);
     void set_value(::grpc::Status& status,
                    ::etcdserverpb::PutResponse& response);
+    void set_value(::grpc::Status& status,
+                   ::etcdserverpb::DeleteRangeResponse& response);
 
 private:
     std::shared_ptr<std::promise<Response>> prom_;
-    bool is_range_;
+    std::shared_future<Response> fut_;
 };
 
 class Client {
@@ -110,11 +120,22 @@ public:
 
     Future set(std::string key,
                std::string value,
-               bool prev_kv = true);
+               bool prev_kv = false);
+
+    Future del(std::string key,
+               bool prev_kv = false);
+
+    Future del_range(std::string key,
+                     std::string range_end,
+                     bool prev_kv = false);
+
+    std::unique_ptr<Watch> watch(std::string key,
+                                 std::string range_end = "");
 
 private:
     std::string address_;
     std::unique_ptr<::etcdserverpb::KV::Stub> kv_stub_;
+    std::unique_ptr<::etcdserverpb::Watch::Stub> watch_stub_;
     std::unique_ptr<std::thread> cq_thread_;
     ::grpc::CompletionQueue cq_;
 
@@ -156,6 +177,7 @@ private:
 };
 
 using PutRequest = Request<::etcdserverpb::PutRequest, ::etcdserverpb::PutResponse, ::etcdserverpb::KV::Stub, &::etcdserverpb::KV::Stub::PrepareAsyncPut>;
-using RangeRequest = Request<::etcdserverpb::RangeRequest, ::etcdserverpb::RangeResponse, ::etcdserverpb::KV::Stub, &::etcdserverpb::KV::Stub::PrepareAsyncRange>;
+using GetRequest = Request<::etcdserverpb::RangeRequest, ::etcdserverpb::RangeResponse, ::etcdserverpb::KV::Stub, &::etcdserverpb::KV::Stub::PrepareAsyncRange>;
+using DelRequest = Request<::etcdserverpb::DeleteRangeRequest, ::etcdserverpb::DeleteRangeResponse, ::etcdserverpb::KV::Stub, &::etcdserverpb::KV::Stub::PrepareAsyncDeleteRange>;
 
 }

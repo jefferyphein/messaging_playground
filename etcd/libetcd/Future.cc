@@ -4,24 +4,18 @@
 
 namespace libetcd {
 
-Future::Future(bool is_range)
+Future::Future()
     : prom_(std::make_shared<std::promise<Response>>())
-    , is_range_(is_range)
-{}
+{
+    fut_ = prom_->get_future().share();
+}
 
 Response Future::get() {
-    return prom_->get_future().get();
+    return fut_.get();
 }
 
 void Future::wait() const {
-    try {
-        prom_->get_future().wait();
-    }
-    catch (std::future_error& e) {
-        if (e.code() == std::future_errc::future_already_retrieved) {
-            return;
-        }
-    }
+    fut_.wait();
 }
 
 void Future::set_value(::grpc::Status& status) {
@@ -29,10 +23,14 @@ void Future::set_value(::grpc::Status& status) {
 }
 
 void Future::set_value(::grpc::Status& status, ::etcdserverpb::RangeResponse& response) {
-    prom_->set_value(Response(status, response, is_range_));
+    prom_->set_value(Response(status, response));
 }
 
 void Future::set_value(::grpc::Status& status, ::etcdserverpb::PutResponse& response) {
+    prom_->set_value(Response(status, response));
+}
+
+void Future::set_value(::grpc::Status& status, ::etcdserverpb::DeleteRangeResponse& response) {
     prom_->set_value(Response(status, response));
 }
 

@@ -16,7 +16,7 @@ all: main
 main: main.cc libetcd.so
 	$(CXX) -o $@ $< -letcd -L. $(CPPFLAGS) $(LDFLAGS)
 
-libetcd.so: etcd.pb.o etcd.grpc.pb.o Client.o Future.o Response.o Value.o
+libetcd.so: etcd.pb.o etcd.grpc.pb.o Client.o Future.o Response.o Value.o Watch.o
 	$(CXX) -shared -o $@ $^ $(CPPFLAGS) $(LDFLAGS)
 
 %.o: %.cc libetcd.h

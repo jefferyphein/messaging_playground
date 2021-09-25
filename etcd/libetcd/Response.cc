@@ -5,15 +5,12 @@ namespace libetcd {
 Response::Response(::grpc::Status& status)
     : error_message_(status.error_message())
     , error_code_(status.error_code())
-    , is_range_(false)
 {}
 
 Response::Response(::grpc::Status& status,
-                   ::etcdserverpb::RangeResponse& response,
-                   bool is_range)
+                   ::etcdserverpb::RangeResponse& response)
     : error_message_(status.error_message())
     , error_code_(status.error_code())
-    , is_range_(is_range)
 {
     values_.reserve(response.kvs().size());
     for (const auto& kv : response.kvs()) {
@@ -32,7 +29,20 @@ Response::Response(::grpc::Status& status,
     : error_message_(status.error_message())
     , error_code_(status.error_code())
 {
-    prev_value_ = response.prev_kv();
+    prev_values_.push_back(
+        response.prev_kv().key().empty() ? Value() : response.prev_kv()
+    );
+}
+
+Response::Response(::grpc::Status& status,
+                   ::etcdserverpb::DeleteRangeResponse& response)
+    : error_message_(status.error_message())
+    , error_code_(status.error_code())
+{
+    prev_values_.reserve(response.prev_kvs().size());
+    for (const auto& kv : response.prev_kvs()) {
+        prev_values_.push_back(kv);
+    }
 }
 
 const Value& Response::value(size_t index) const {
