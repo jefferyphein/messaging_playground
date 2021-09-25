@@ -9,6 +9,7 @@ Value::Value(const ::etcdserverpb::KeyValue& kv)
     , version_(kv.version())
     , value_(kv.value())
     , lease_(kv.lease())
+    , valid_(true)
 {}
 
 }
