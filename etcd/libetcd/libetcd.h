@@ -13,8 +13,6 @@
 
 namespace libetcd {
 
-using AsyncRangeResponseReader = ::grpc::ClientAsyncResponseReader<::etcdserverpb::RangeResponse>;
-
 class AsyncEtcdBase {
 public:
     AsyncEtcdBase() = default;
@@ -120,38 +118,43 @@ private:
     ::grpc::CompletionQueue cq_;
 
     void run_completion_queue_();
-
-    class RangeRequest: public AsyncEtcdBase {
-    public:
-        RangeRequest(const ::etcdserverpb::RangeRequest& request,
-                     Future fut,
-                     ::etcdserverpb::KV::Stub *stub,
-                     ::grpc::CompletionQueue *cq);
-
-        void proceed() override;
-
-    private:
-        Future fut_;
-        ::etcdserverpb::RangeResponse response_;
-        ::grpc::ClientContext context_;
-        ::grpc::Status status_;
-    };
-
-    class PutRequest: public AsyncEtcdBase {
-    public:
-        PutRequest(const ::etcdserverpb::PutRequest& request,
-                   Future fut,
-                   ::etcdserverpb::KV::Stub *stub,
-                   ::grpc::CompletionQueue *cq);
-
-        void proceed() override;
-
-    private:
-        Future fut_;
-        ::etcdserverpb::PutResponse response_;
-        ::grpc::ClientContext context_;
-        ::grpc::Status status_;
-    };
 };
+
+template<typename Req,
+         typename Res,
+         typename Stub,
+         std::unique_ptr<::grpc::ClientAsyncResponseReader<Res>> (Stub::*PrepareFunc)(::grpc::ClientContext*, const Req&, ::grpc::CompletionQueue*)>
+class Request: public AsyncEtcdBase {
+public:
+    Request(const Req& request,
+            Future fut,
+            Stub *stub,
+            ::grpc::CompletionQueue *cq)
+        : fut_(fut)
+    {
+        auto rpc = (stub->*PrepareFunc)(&context_, request, cq);
+        rpc->StartCall();
+        rpc->Finish(&response_, &status_, this);
+    }
+
+    void proceed() {
+        if (status_.ok()) {
+            fut_.set_value(status_, response_);
+        }
+        else {
+            fut_.set_value(status_);
+        }
+        delete this;
+    }
+
+private:
+    Future fut_;
+    Res response_;
+    ::grpc::ClientContext context_;
+    ::grpc::Status status_;
+};
+
+using PutRequest = Request<::etcdserverpb::PutRequest, ::etcdserverpb::PutResponse, ::etcdserverpb::KV::Stub, &::etcdserverpb::KV::Stub::PrepareAsyncPut>;
+using RangeRequest = Request<::etcdserverpb::RangeRequest, ::etcdserverpb::RangeResponse, ::etcdserverpb::KV::Stub, &::etcdserverpb::KV::Stub::PrepareAsyncRange>;
 
 }

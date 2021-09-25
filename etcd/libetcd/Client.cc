@@ -52,48 +52,4 @@ void Client::run_completion_queue_() {
     }
 }
 
-Client::RangeRequest::RangeRequest(const ::etcdserverpb::RangeRequest& request,
-                                   Future fut,
-                                   ::etcdserverpb::KV::Stub *stub,
-                                   ::grpc::CompletionQueue *cq)
-    : fut_(fut)
-{
-    auto rpc = stub->PrepareAsyncRange(&context_, request, cq);
-    rpc->StartCall();
-    rpc->Finish(&response_, &status_, this);
-}
-
-void Client::RangeRequest::proceed() {
-    if (status_.ok()) {
-        fut_.set_value(status_, response_);
-    }
-    else {
-        fut_.set_value(status_);
-    }
-
-    delete this;
-}
-
-Client::PutRequest::PutRequest(const ::etcdserverpb::PutRequest& request,
-                               Future fut,
-                               ::etcdserverpb::KV::Stub *stub,
-                               ::grpc::CompletionQueue *cq)
-    : fut_(fut)
-{
-    auto rpc = stub->PrepareAsyncPut(&context_, request, cq);
-    rpc->StartCall();
-    rpc->Finish(&response_, &status_, this);
-}
-
-void Client::PutRequest::proceed() {
-    if (status_.ok()) {
-        fut_.set_value(status_, response_);
-    }
-    else {
-        fut_.set_value(status_);
-    }
-
-    delete this;
-}
-
 }
