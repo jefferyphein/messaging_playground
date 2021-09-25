@@ -88,6 +88,7 @@ class Future {
 public:
     Future(bool is_range = false);
     Response get();
+    void wait() const;
     void set_value(::grpc::Status& status);
     void set_value(::grpc::Status& status,
                    ::etcdserverpb::RangeResponse& response);

@@ -13,6 +13,17 @@ Response Future::get() {
     return prom_->get_future().get();
 }
 
+void Future::wait() const {
+    try {
+        prom_->get_future().wait();
+    }
+    catch (std::future_error& e) {
+        if (e.code() == std::future_errc::future_already_retrieved) {
+            return;
+        }
+    }
+}
+
 void Future::set_value(::grpc::Status& status) {
     prom_->set_value(Response(status));
 }
