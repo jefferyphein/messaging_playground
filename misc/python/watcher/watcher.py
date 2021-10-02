@@ -29,7 +29,13 @@ class WatchProtocol(asyncio.SubprocessProtocol):
             self._done_future.set_result(True)
 
 class Watcher:
-    def __init__(self):
+    def __init__(self, cmd, verify=tuple()):
+
+        for filename in verify:
+            if not os.path.exists(filename):
+                raise FileNotFoundError("File '%s' does not exist." % filename)
+
+        self._cmd = shlex.split(cmd)
         self._callbacks = list()
         self._done_future = None
         self._transport = None
@@ -39,17 +45,13 @@ class Watcher:
     def add_state_callback(self, f):
         self._callbacks.append(f)
 
-    async def start(self, cmd, verify=tuple()):
-        for filename in verify:
-            if not os.path.exists(filename):
-                raise FileNotFoundError("File '%s' does not exist." % filename)
-
+    async def start(self):
         loop = asyncio.get_event_loop()
 
         self._done_future = asyncio.Future()
         self._transport, self._protocol = await loop.subprocess_exec(
             lambda: WatchProtocol(self._done_future, self._callbacks),
-            *shlex.split(cmd),
+            *self._cmd
         )
 
     def cancel(self):
@@ -63,7 +65,7 @@ class Watcher:
         self._done_future = None
 
 async def main():
-    sw = Watcher()
+    sw = Watcher("stdbuf -oL ./main", verify=["./main", shutil.which("stdbuf")])
 
     done = asyncio.Future()
     def f(prev_state, new_state):
@@ -72,7 +74,7 @@ async def main():
             done.set_result(True)
     sw.add_state_callback(f)
 
-    await sw.start("stdbuf -oL ./main", verify=["./main", shutil.which("stdbuf")])
+    await sw.start()
     await done
     sw.cancel()
     await sw.done()
