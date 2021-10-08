@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package discovery;
+
+service Discovery {
+    rpc RegisterService(RegisterServiceRequest) returns (RegisterServiceResponse);
+    rpc UnregisterService(UnregisterServiceRequest) returns (UnregisterServiceResponse);
+    rpc KeepAlive(KeepAliveRequest) returns (KeepAliveResponse);
+}
+
+message RegisterServiceRequest {
+    string hostname = 1;
+    int32 port = 2;
+    string instance = 3;
+    string service_type = 4;
+    string service_name = 5;
+    uint32 ttl = 6;
+    repeated Metadata metadata = 15;
+}
+
+message RegisterServiceResponse {
+    bool ok = 1;
+}
+
+message UnregisterServiceRequest {
+    string instance = 1;
+    string service_type = 2;
+    string service_name = 3;
+}
+
+message UnregisterServiceResponse {
+    bool ok = 1;
+}
+
+message KeepAliveRequest {
+    string instance = 1;
+    string service_type = 2;
+    string service_name = 3;
+}
+
+message KeepAliveResponse {
+    bool ok = 1;
+}
+
+message Metadata {
+    string key = 1;
+    string value = 2;
+}
