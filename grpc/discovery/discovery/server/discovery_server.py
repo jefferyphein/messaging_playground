@@ -97,7 +97,7 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
     def reset_service_timeout(self, instance, service_type, service_name, ttl):
         task_name = "%s/%s/%s" % (instance, service_type, service_name)
         task = self._task_list.get(task_name, None)
-        if task is not None
+        if task is not None:
             if not task.done():
                 task.cancel()
 

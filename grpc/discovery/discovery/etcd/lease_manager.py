@@ -9,24 +9,18 @@ class LeaseManager:
         self._etcd_client = etcd_client
         self._ttl = ttl
         self._keep_alive = keep_alive
-        self._lease_key = lease_key.encode()
+        self._lease_id = None
+        self._lease_key = lease_key
         self._keep_alive_task = None
 
     async def inherit_lease(self):
-        # Attempt to inherit the lease provided by the lease key.
-        request = discovery.protobuf.RangeRequest(
-            key=self._lease_key
-        )
-        response = await self._etcd_client._kv_stub.Range(request)
-
-        if response.count == 0:
-            # No lease stored, return None
+        lease_id = await self._etcd_client.get(self._lease_key)
+        if lease_id is None:
             return None
+        lease_id = int(lease_id)
 
-        # Return the inherited lease.
-        lease_id = int(response.kvs[0].value)
         self._logger.info("Inheriting lease (lease_id: %s)", lease_id)
-        return discovery.etcd.Lease(lease_id, self._etcd_client._lease_stub)
+        return lease_id
 
     def _refresh(self, lease_id):
         return discovery.protobuf.LeaseKeepAliveRequest(
@@ -35,76 +29,61 @@ class LeaseManager:
 
     @property
     def lease_id(self):
-        return self._lease.lease_id
+        return self._lease_id
 
-    async def _refresh_iterator(self):
-        while True:
-            yield self._refresh(self._lease.lease_id)
-            await asyncio.sleep(self._keep_alive)
+    @property
+    def keep_alive(self):
+        return self._keep_alive
 
     async def _lease_keep_alive(self):
-        call = self._etcd_client._lease_stub.LeaseKeepAlive(self._refresh_iterator())
-        async for response in call:
-            if response.TTL == 0:
-                self._logger.info("Failed to refresh lease (lease_id: %s)", self._lease.lease_id)
-                await self.create_lease()
-            else:
-                self._logger.info("Refreshed lease (lease_id: %s; ttl: %s)", self._lease.lease_id, self._ttl)
+        while True:
+            self._logger.info("Initiating keep alive stream.")
+            call = self._etcd_client.lease_keep_alive(self)
+
+            try:
+                async for response in call:
+                    if response.TTL == 0:
+                        self._logger.info("Failed to refresh lease (lease_id: %s)", self._lease_id)
+                        await self.create_lease()
+                    else:
+                        self._logger.info("Refreshed lease (lease_id: %s; ttl: %s)", self._lease_id, self._ttl)
+            except grpc.aio.AioRpcError as e:
+                self._logger.critical("No connection to remote host, waiting for channel to be ready again.")
+                await self._etcd_client.channel_ready()
 
     async def create_lease(self):
-        request = discovery.protobuf.LeaseGrantRequest(
-            TTL=self._ttl
-        )
-        response = await self._etcd_client._lease_stub.LeaseGrant(request)
-        lease_id = response.ID
+        lease_id = await self._etcd_client.lease(self._ttl)
+        if lease_id is None:
+            return None
 
-        # Store the lease ID, but do not apply the lease. This allows this key
-        # to persist beyond lease expiration, allowing for inheritence in case
-        # of failure.
-        request = discovery.protobuf.PutRequest(
-            key=self._lease_key,
-            value=str(lease_id).encode(),
-            lease=lease_id,
-        )
-        response = await self._etcd_client._kv_stub.Put(request)
+        await self._etcd_client.put(self._lease_key, str(lease_id), lease_id=lease_id)
 
         self._logger.info("Created new lease (lease_id: %s)", lease_id)
-        return discovery.etcd.Lease(lease_id, self._etcd_client._lease_stub)
-
-    async def _request_kvs(self, keys):
-        request = discovery.protobuf.TxnRequest(
-            success=list(
-                discovery.protobuf.RequestOp(
-                    request_range=discovery.protobuf.RangeRequest(
-                        key=key
-                    )
-                )
-                for key in keys
-            )
-        )
-        response = await self._etcd_client._kv_stub.Txn(request)
-        if not response.succeeded:
-            return dict()
-
-        return {
-            item.response_range.kvs[0].key.decode():
-                item.response_range.kvs[0].value.decode() for item in response.responses
-        }
+        return lease_id
 
     async def start(self):
         # Attempt lease inheritence.
         keys = list()
-        self._lease = await self.inherit_lease()
-        if self._lease is None:
-            self._lease = await self.create_lease()
+        self._lease_id = await self.inherit_lease()
+        if self._lease_id is None:
+            self._lease_id = await self.create_lease()
         else:
-            ok, keys = await self._lease.is_alive()
+            keys = await self._etcd_client.lease_keys(self._lease_id)
 
         # Start the keep-alive task.
         self._keep_alive_task = asyncio.create_task(self._lease_keep_alive())
 
+        # There is no lease, return empty dictionary.
+        if self._lease_id is None:
+            return dict()
+
+        # There are no keys, return empty dictionary.
+        if keys is None:
+            return dict()
+
         # Query the inherited keys and return the inheritance.
-        return await self._request_kvs(keys)
+        result = await self._etcd_client.get_many(keys)
+        return result if result is not None else dict()
 
     async def run_forever(self):
         super().run_forever()
