@@ -37,7 +37,7 @@ class LeaseManager:
 
     async def _lease_keep_alive(self):
         while True:
-            self._logger.info("Initiating keep alive stream.")
+            self._logger.info("Starting lease keep-alive stream.")
             call = self._etcd_client.lease_keep_alive(self)
 
             try:
@@ -84,8 +84,3 @@ class LeaseManager:
         # Query the inherited keys and return the inheritance.
         result = await self._etcd_client.get_many(keys)
         return result if result is not None else dict()
-
-    async def run_forever(self):
-        super().run_forever()
-        if self._keep_alive_task is not None:
-            await self._keep_alive_task

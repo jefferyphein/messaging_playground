@@ -6,7 +6,7 @@ import asyncio
 from sqlalchemy.orm import sessionmaker
 
 import discovery
-from discovery.server.cache import LocalCache
+from discovery.server.cache import Cache, LocalCache, GlobalCache
 
 class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
     def __init__(self, engine, etcd_client, lease_manager):
@@ -15,6 +15,58 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
         self._etcd_client = etcd_client
         self._lease_manager = lease_manager
         self._task_list = dict()
+
+    async def watch_callback(self, events):
+        session = self.create_session()
+        try:
+            for event in events:
+                if event.type == discovery.protobuf.Event.EventType.PUT:
+                    key = event.kv.key.decode()
+                    value = event.kv.value.decode()
+                elif event.type == discovery.protobuf.Event.EventType.DELETE:
+                    key = event.kv.key.decode()
+
+                instance, service_type, service_name = self._etcd_client.breakout_key(key)
+                results = Cache.find(
+                    GlobalCache,
+                    self._engine,
+                    instance=instance,
+                    service_type=service_type,
+                    service_name=service_name,
+                    session=session,
+                )
+                assert results.count() == 0 or results.count() == 1
+
+                if event.type == discovery.protobuf.Event.EventType.DELETE:
+                    if results.count() == 1:
+                        session.delete(results[0])
+                elif event.type == discovery.protobuf.Event.EventType.PUT:
+                    metadata = json.loads(value)
+                    hostname = metadata.get('hostname', None)
+                    port = metadata.get('port', None)
+                    ttl = metadata.get('ttl', None)
+                    if 'hostname' in metadata: del metadata['hostname']
+                    if 'port' in metadata: del metadata['port']
+                    if 'ttl' in metadata: del metadata['ttl']
+                    # TODO: Figure out a better way to do this.
+
+                    service = GlobalCache(
+                        instance=instance,
+                        service_type=service_type,
+                        service_name=service_name,
+                        hostname=hostname,
+                        port=port,
+                        ttl=ttl,
+                        data=json.dumps(metadata),
+                    )
+                    service.register(GlobalCache, self._engine, session=session)
+
+            if len(events) > 0:
+                session.commit()
+                self._logger.info("Updated global cache from %s events.", len(events))
+        except:
+            session.rollback()
+            self._logger.info("An error occurred when updating global cache.")
 
     def create_session(self):
         Session = sessionmaker(self._engine)
@@ -32,7 +84,7 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
             data=json.dumps(metadata),
         )
 
-        updated = service.register(self._engine)
+        updated = service.register(LocalCache, self._engine)
         if updated:
             self._logger.info("Service added (instance: %s, type: %s, name: %s)", request.instance, request.service_type, request.service_name)
             # Forward update to the global discovery service.
@@ -44,7 +96,8 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
 
     async def UnregisterService(self, request, context):
         session = self.create_session()
-        results = LocalCache.find(
+        results = Cache.find(
+            LocalCache,
             self._engine,
             instance=request.instance,
             service_type=request.service_type,
@@ -71,7 +124,8 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
 
     async def KeepAlive(self, request, context):
         session = self.create_session()
-        results = LocalCache.find(
+        results = Cache.find(
+            LocalCache,
             self._engine,
             instance=request.instance,
             service_type=request.service_type,
@@ -138,8 +192,16 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
             self._servicer, self.server
         )
 
+        # Create the watch manager.
+        self._watch_manager = discovery.etcd.WatchManager(
+            self._etcd_client,
+            "/discovery/",
+            watch_callback=self._servicer.watch_callback,
+        )
+
     async def start(self):
         await super().start()
+        await self._watch_manager.start()
         inheritance = await self._lease_manager.start()
         inherited_services = self._etcd_client.inherited_services(inheritance)
 
@@ -149,7 +211,7 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
             try:
                 for service in inherited_services:
                     local_cache = service.create_local_cache()
-                    local_cache.register(self._engine, session=session)
+                    local_cache.register(LocalCache, self._engine, session=session)
                     self._servicer.reset_service_timeout(service.instance, service.service_type, service.service_name, int(service.ttl))
                 session.commit()
                 self._logger.info("Inherited %s service(s).", len(inherited_services))

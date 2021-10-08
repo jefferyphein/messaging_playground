@@ -13,16 +13,6 @@ def _handle_errors_async(func):
                 return None
     return handle_errors_async
 
-#def _handle_errors(func):
-#    def handle_errors(*args, **kwargs):
-#        try:
-#            return func(*args, **kwargs)
-#        except grpc.aio.AioRpcError as e:
-#            if e.code() == grpc.StatusCode.UNAVAILABLE:
-#                print("UNAVAILABLE")
-#                return None
-#    return handle_errors
-
 class EtcdClient:
     def __init__(self, hostname, port, namespace="/discovery/"):
         self.namespace = namespace
@@ -30,6 +20,7 @@ class EtcdClient:
         self._channel = grpc.aio.insecure_channel("%s:%d" % (hostname, port))
         self._lease_stub = discovery.protobuf.LeaseStub(self._channel)
         self._kv_stub = discovery.protobuf.KVStub(self._channel)
+        self._watch_stub = discovery.protobuf.WatchStub(self._channel)
 
     async def channel_ready(self):
         await self._channel.channel_ready()
@@ -47,6 +38,12 @@ class EtcdClient:
     async def unregister_service(self, request):
         key = "/discovery/%s/%s/%s" % (request.instance, request.service_type, request.service_name)
         return await self.rm(key)
+
+    def breakout_key(self, key):
+        if not key.startswith("/discovery/"): return None
+        arr = key.split("/")
+        if len(arr) != 5: return None
+        return arr[2:]
 
     @_handle_errors_async
     async def get(self, key):
@@ -123,15 +120,25 @@ class EtcdClient:
     def lease_keep_alive(self, lease_manager):
         return self._lease_stub.LeaseKeepAlive(self._lease_refresh_iterator(lease_manager))
 
+    async def _watch_iterator(self, watch_manager):
+        key = watch_manager.key_prefix.encode()
+        range_end = discovery.etcd.range_end(key)
+        yield discovery.protobuf.WatchRequest(
+            create_request=discovery.protobuf.WatchCreateRequest(
+                key=key,
+                range_end=range_end,
+            )
+        )
+
+    def watch(self, watch_manager):
+        return self._watch_stub.Watch(self._watch_iterator(watch_manager))
+
     def inherited_services(self, inheritance):
         services = list()
         for key in inheritance:
-            if not key.startswith("/discovery/"):
-                continue
-            arr = key.split("/")
-            if len(arr) != 5:
-                continue
+            arr = self.breakout_key(key)
+            if arr is None: continue
 
             metadata = json.loads(inheritance[key])
-            services.append(discovery.core.Service(*arr[2:], **metadata))
+            services.append(discovery.core.Service(*arr, **metadata))
         return services

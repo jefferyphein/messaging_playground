@@ -22,24 +22,24 @@ class Cache:
 
 
     @staticmethod
-    def find(engine, instance, service_type, service_name, session=None):
+    def find(cls, engine, instance, service_type, service_name, session=None):
         if session is None:
             Session = sessionmaker(engine)
             session = Session()
 
-        return session.query(LocalCache).filter_by(
+        return session.query(cls).filter_by(
             instance=instance,
             service_type=service_type,
             service_name=service_name,
         )
 
-    def register(self, engine, session=None):
+    def register(self, cls, engine, session=None):
         commit = session is None
         if session is None:
             Session = sessionmaker(engine)
             session = Session()
 
-        results = session.query(LocalCache).filter_by(
+        results = session.query(cls).filter_by(
             instance=self.instance,
             service_type=self.service_type,
             service_name=self.service_name,

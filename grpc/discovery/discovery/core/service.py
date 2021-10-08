@@ -12,7 +12,6 @@ class Service:
         self.metadata = dict(metadata)
 
     def create_local_cache(self):
-        print(self.metadata)
         return discovery.server.cache.LocalCache(
             instance=self.instance,
             service_type=self.service_type,
