@@ -97,9 +97,19 @@ class Cache:
 class LocalCache(discovery.Base, Cache):
     __tablename__ = "local_cache"
 
+    @staticmethod
+    def register_service(service, engine, session=None):
+        entry = service.create_local_cache()
+        entry.register(LocalCache, engine, session=session)
+
 
 class GlobalCache(discovery.Base, Cache):
     __tablename__ = "global_cache"
+
+    @staticmethod
+    def register_service(service, engine, session=None):
+        entry = service.create_global_cache()
+        entry.register(GlobalCache, engine, session=session)
 
 
 sqlalchemy.Index('local_service_index', LocalCache.instance, LocalCache.service_type)

@@ -55,6 +55,16 @@ class EtcdClient:
         return response.kvs[0].value if response.count == 1 else None
 
     @_handle_errors_async
+    async def get_prefix(self, key_prefix):
+        key = key_prefix.encode()
+        request = discovery.protobuf.RangeRequest(
+            key=key,
+            range_end=discovery.etcd.range_end(key)
+        )
+        response = await self._kv_stub.Range(request)
+        return { kv.key.decode(): kv.value.decode() for kv in response.kvs }
+
+    @_handle_errors_async
     async def get_many(self, keys):
         request = discovery.protobuf.TxnRequest(
             success=list(
@@ -133,12 +143,12 @@ class EtcdClient:
     def watch(self, watch_manager):
         return self._watch_stub.Watch(self._watch_iterator(watch_manager))
 
-    def inherited_services(self, inheritance):
+    def unpack_services(self, kvs):
         services = list()
-        for key in inheritance:
+        for key in kvs:
             arr = self.breakout_key(key)
             if arr is None: continue
 
-            metadata = json.loads(inheritance[key])
+            metadata = json.loads(kvs[key])
             services.append(discovery.core.Service(*arr, **metadata))
         return services

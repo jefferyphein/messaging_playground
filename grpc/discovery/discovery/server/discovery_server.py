@@ -4,6 +4,8 @@ import sqlalchemy
 import json
 import asyncio
 from sqlalchemy.orm import sessionmaker
+from functools import wraps
+from types import CoroutineType, AsyncGeneratorType, FunctionType
 
 import discovery
 from discovery.server.cache import Cache, LocalCache, GlobalCache
@@ -17,6 +19,7 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
         self._task_list = dict()
 
     async def watch_callback(self, events):
+        num_updates = 0
         session = self.create_session()
         try:
             for event in events:
@@ -26,7 +29,10 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
                 elif event.type == discovery.protobuf.Event.EventType.DELETE:
                     key = event.kv.key.decode()
 
-                instance, service_type, service_name = self._etcd_client.breakout_key(key)
+                result = self._etcd_client.breakout_key(key)
+                if result is None: continue
+                instance, service_type, service_name = result
+
                 results = Cache.find(
                     GlobalCache,
                     self._engine,
@@ -40,6 +46,7 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
                 if event.type == discovery.protobuf.Event.EventType.DELETE:
                     if results.count() == 1:
                         session.delete(results[0])
+                        num_updates += 1
                 elif event.type == discovery.protobuf.Event.EventType.PUT:
                     metadata = json.loads(value)
                     hostname = metadata.get('hostname', None)
@@ -59,14 +66,16 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
                         ttl=ttl,
                         data=json.dumps(metadata),
                     )
-                    service.register(GlobalCache, self._engine, session=session)
+                    updated = service.register(GlobalCache, self._engine, session=session)
+                    if updated:
+                        num_updates += 1
 
-            if len(events) > 0:
+            if num_updates > 0:
                 session.commit()
                 self._logger.info("Updated global cache from %s events.", len(events))
-        except:
+        except Exception as e:
             session.rollback()
-            self._logger.info("An error occurred when updating global cache.")
+            self._logger.error("An error occurred when updating global cache: %s", e)
 
     def create_session(self):
         Session = sessionmaker(self._engine)
@@ -162,13 +171,13 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
         super().__init__(*args, **kwargs)
         self._logger = logging.getLogger("discovery.server")
 
-        # Create the Etcd client.
+        # Create Etcd client.
         self._etcd_client = discovery.etcd.EtcdClient(
             etcd_hostname,
             etcd_port
         )
 
-        # Create the Etcd lease manager.
+        # Create Etcd lease manager.
         self._service_name = service_name
         self._lease_manager = discovery.etcd.LeaseManager(
             self._etcd_client,
@@ -186,13 +195,13 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
         )
         discovery.Base.metadata.create_all(self._engine)
 
-        # Added the servicer to the service.
+        # Add servicer to the server.
         self._servicer = DiscoveryServicer(self._engine, self._etcd_client, self._lease_manager)
         discovery.protobuf.add_DiscoveryServicer_to_server(
             self._servicer, self.server
         )
 
-        # Create the watch manager.
+        # Create watch manager.
         self._watch_manager = discovery.etcd.WatchManager(
             self._etcd_client,
             "/discovery/",
@@ -201,20 +210,38 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
 
     async def start(self):
         await super().start()
-        await self._watch_manager.start()
-        inheritance = await self._lease_manager.start()
-        inherited_services = self._etcd_client.inherited_services(inheritance)
 
+        # Inherit global services.
+        global_kvs = await self._etcd_client.get_prefix("/discovery/")
+        if global_kvs is not None:
+            global_services = self._etcd_client.unpack_services(global_kvs)
+            if len(global_services) > 0:
+                Session = sessionmaker(bind=self._engine)
+                session = Session()
+                try:
+                    for service in global_services:
+                        GlobalCache.register_service(service, self._engine, session=session)
+                    session.commit()
+                    self._logger.info("Added %s service(s) to global cache.", len(global_services))
+                except:
+                    session.rollback()
+                    self._logger.error("Failed to import global services.")
+
+        # Inherit local services.
+        inherited_kvs = await self._lease_manager.start()
+        inherited_services = self._etcd_client.unpack_services(inherited_kvs)
         if len(inherited_services) > 0:
             Session = sessionmaker(bind=self._engine)
             session = Session()
             try:
                 for service in inherited_services:
-                    local_cache = service.create_local_cache()
-                    local_cache.register(LocalCache, self._engine, session=session)
+                    LocalCache.register_service(service, self._engine, session=session)
                     self._servicer.reset_service_timeout(service.instance, service.service_type, service.service_name, int(service.ttl))
                 session.commit()
-                self._logger.info("Inherited %s service(s).", len(inherited_services))
+                self._logger.info("Inherited %s service(s) to local cache.", len(inherited_services))
             except:
                 session.rollback()
-                self._logger.info("Failed to inherit services.")
+                self._logger.error("Failed to inherit local services.")
+
+        # Start watcher.
+        await self._watch_manager.start()

@@ -9,17 +9,44 @@ from .. import discovery_cli
 from .discovery_server import DiscoveryServer
 from .cache import LocalCache
 
+async def shutdown(loop, aio_server, signal=None):
+    await aio_server.shutdown()
+    logger = logging.getLogger("shutdown")
+    if signal:
+        logger.info(f"Received exit signal {signal.name}")
+    logger.info("Shutting down server.")
+    asyncio.run_coroutine_threadsafe(aio_server.shutdown(), loop)
+    logger.info("Cancelling all tasks.")
+    tasks = [ task for task in asyncio.all_tasks() if task is not asyncio.current_task() ]
+    for task in tasks:
+        print(task.get_name())
+        task.cancel()
+        await task
+    logger.info(f"Cancelling {len(tasks)} outstanding task(s).")
+    await asyncio.gather(*tasks, return_exceptions=True)
+    loop.stop()
+
+# TODO: This will not be called if the RPC functions throw exceptions. However,
+# it should be possible to pass them through an interceptor so that exception
+# get handled by this handler.
+def handle_exception(aio_server, loop, context):
+    logger = logging.getLogger("exception_handler")
+    msg = context.get("exception", context["message"])
+    logger.error(f"Caught exception {msg}")
+    logger.info("Shutting down...")
+    asyncio.create_task(shutdown(loop, aio_server))
+
 async def _service(*args, **kwargs):
     aio_server = DiscoveryServer(*args, **kwargs)
     logger = logging.getLogger("discovery")
 
-    def handler(loop, signum, frame):
-        logger.critical("Signal '%s' (code: %s) received, shutting down service.", signal.strsignal(signum), signum)
-        asyncio.run_coroutine_threadsafe(aio_server.shutdown(), loop)
-
-    signal.signal(signal.SIGTERM, partial(handler, asyncio.get_event_loop()))
-    signal.signal(signal.SIGINT, partial(handler, asyncio.get_event_loop()))
-
+    loop = asyncio.get_event_loop()
+    signals = [ signal.SIGTERM, signal.SIGINT, signal.SIGHUP ]
+    for s in signals:
+        loop.add_signal_handler(
+            s, lambda s=s: asyncio.create_task(shutdown(loop, aio_server, signal=s))
+        )
+    loop.set_exception_handler(partial(handle_exception, aio_server))
     await aio_server.start()
     await aio_server.run_forever()
 

@@ -21,3 +21,14 @@ class Service:
             ttl=self.ttl,
             data=json.dumps(self.metadata),
         )
+
+    def create_global_cache(self):
+        return discovery.server.cache.GlobalCache(
+            instance=self.instance,
+            service_type=self.service_type,
+            service_name=self.service_name,
+            hostname=self.hostname,
+            port=self.port,
+            ttl=self.ttl,
+            data=json.dumps(self.metadata),
+        )
