@@ -33,7 +33,18 @@ class Cache:
             service_name=service_name,
         )
 
-    def register(self, cls, engine, session=None):
+    def to_service(self):
+        return discovery.core.Service(
+            instance=self.instance,
+            service_type=self.service_type,
+            service_name=self.service_name,
+            hostname=self.hostname,
+            port=self.port,
+            ttl=self.ttl,
+            **json.loads(self.data, parse_int=str),
+        )
+
+    def register(self, engine, cls, session=None):
         commit = session is None
         if session is None:
             Session = sessionmaker(engine)
@@ -91,7 +102,7 @@ class Cache:
             and self.service_name == other.service_name \
             and self.hostname == other.hostname \
             and self.port == other.port \
-            and json.loads(self.data) == json.loads(other.data)
+            and json.loads(self.data, parse_int=str) == json.loads(other.data, parse_int=str)
 
 
 class LocalCache(discovery.Base, Cache):
@@ -99,8 +110,8 @@ class LocalCache(discovery.Base, Cache):
 
     @staticmethod
     def register_service(service, engine, session=None):
-        entry = service.create_local_cache()
-        entry.register(LocalCache, engine, session=session)
+        entry = service.create_cache(LocalCache)
+        entry.register(engine, LocalCache, session=session)
 
 
 class GlobalCache(discovery.Base, Cache):
@@ -108,8 +119,8 @@ class GlobalCache(discovery.Base, Cache):
 
     @staticmethod
     def register_service(service, engine, session=None):
-        entry = service.create_global_cache()
-        entry.register(GlobalCache, engine, session=session)
+        entry = service.create_cache(GlobalCache)
+        entry.register(engine, GlobalCache, session=session)
 
 
 sqlalchemy.Index('local_service_index', LocalCache.instance, LocalCache.service_type)

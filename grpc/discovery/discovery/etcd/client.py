@@ -16,6 +16,8 @@ def _handle_errors_async(func):
 class EtcdClient:
     def __init__(self, hostname, port, namespace="/discovery/"):
         self.namespace = namespace
+        if self.namespace[-1] != "/":
+            self.namespace += "/"
 
         self._channel = grpc.aio.insecure_channel("%s:%d" % (hostname, port))
         self._lease_stub = discovery.protobuf.LeaseStub(self._channel)
@@ -25,29 +27,30 @@ class EtcdClient:
     async def channel_ready(self):
         await self._channel.channel_ready()
 
-    async def register_service(self, request, lease_id=None):
-        metadata = { item.key: item.value for item in request.metadata }
-        metadata['hostname'] = request.hostname
-        metadata['port'] = str(request.port)
-        metadata['ttl'] = str(request.ttl)
-
-        key = "/discovery/%s/%s/%s" % (request.instance, request.service_type, request.service_name)
-        value = json.dumps(metadata)
+    async def register_service(self, service, lease_id=None):
+        key, value = self.service_to_kv(service)
         return await self.put(key, value, lease_id=lease_id)
 
-    async def unregister_service(self, request):
-        key = "/discovery/%s/%s/%s" % (request.instance, request.service_type, request.service_name)
+    async def unregister_service(self, service):
+        key, value = self.service_to_kv(service)
         return await self.rm(key)
 
-    def breakout_key(self, key):
-        if not key.startswith("/discovery/"): return None
+    def kv_to_service(self, key, value=None):
+        if not key.startswith(self.namespace):
+            return None
         arr = key.split("/")
-        if len(arr) != 5: return None
-        return arr[2:]
+        if len(arr) != 3+self.namespace.count("/"):
+            return None
+        metadata = json.loads(value, parse_int=str) if value is not None else dict()
+        return discovery.core.Service(*arr[2:], **metadata)
+
+    def service_to_kv(self, service):
+        key = "%s%s/%s/%s" % (self.namespace, service.instance, service.service_type, service.service_name)
+        value = json.dumps(service.extended_metadata(), sort_keys=True)
+        return key, value
 
     @_handle_errors_async
     async def get(self, key):
-        # Attempt to inherit the lease provided by the lease key.
         request = discovery.protobuf.RangeRequest(
             key=key.encode()
         )
@@ -92,6 +95,21 @@ class EtcdClient:
             lease=lease_id,
         )
         return await self._kv_stub.Put(request)
+
+    @_handle_errors_async
+    async def put_many(self, kv_pairs, lease_id=None):
+        request = discovery.protobuf.TxnRequest(
+            success=list(
+                discovery.protobuf.RequestOp(
+                    request_put=discovery.protobuf.PutRequest(
+                        key=key.encode(),
+                        value=value.encode(),
+                        lease=lease_id,
+                    )
+                ) for key, value in kv_pairs
+            )
+        )
+        return await self._kv_stub.Txn(request)
 
     @_handle_errors_async
     async def rm(self, key):
@@ -145,10 +163,8 @@ class EtcdClient:
 
     def unpack_services(self, kvs):
         services = list()
-        for key in kvs:
-            arr = self.breakout_key(key)
-            if arr is None: continue
-
-            metadata = json.loads(kvs[key])
-            services.append(discovery.core.Service(*arr, **metadata))
+        for key,value in kvs.items():
+            service = self.kv_to_service(key, value)
+            if service is not None:
+                services.append(service)
         return services

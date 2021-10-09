@@ -29,12 +29,15 @@ class Discovery:
         self._stub = discovery.protobuf.DiscoveryStub(self._channel)
 
     def register_service(self, hostname, port, instance, service_type, service_name, ttl, metadata=dict()):
-        request = discovery.protobuf.RegisterServiceRequest(
-            hostname=hostname,
-            port=int(port),
+        service_id = discovery.protobuf.ServiceID(
             instance=instance,
             service_type=service_type,
             service_name=service_name,
+        )
+        request = discovery.protobuf.RegisterServiceRequest(
+            service_id=service_id,
+            hostname=hostname,
+            port=int(port),
             ttl=ttl,
         )
 
@@ -54,18 +57,24 @@ class Discovery:
         response = self._stub.RegisterService(request)
 
     def unregister_service(self, instance, service_type, service_name):
-        request = discovery.protobuf.UnregisterServiceRequest(
+        service_id = discovery.protobuf.ServiceID(
             instance=instance,
             service_type=service_type,
             service_name=service_name,
+        )
+        request = discovery.protobuf.UnregisterServiceRequest(
+            service_id=service_id,
         )
 
         response = self._stub.UnregisterService(request)
 
     def keep_alive(self, instance, service_type, service_name):
-        request = discovery.protobuf.KeepAliveRequest(
+        service_id = discovery.protobuf.ServiceID(
             instance=instance,
             service_type=service_type,
             service_name=service_name,
+        )
+        request = discovery.protobuf.KeepAliveRequest(
+            service_id=service_id,
         )
         response = self._stub.KeepAlive(request)

@@ -19,10 +19,56 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0f\x64iscovery.proto\x12\tdiscovery\"\xaa\x01\n\x16RegisterServiceRequest\x12\x10\n\x08hostname\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12\x10\n\x08instance\x18\x03 \x01(\t\x12\x14\n\x0cservice_type\x18\x04 \x01(\t\x12\x14\n\x0cservice_name\x18\x05 \x01(\t\x12\x0b\n\x03ttl\x18\x06 \x01(\r\x12%\n\x08metadata\x18\x0f \x03(\x0b\x32\x13.discovery.Metadata\"%\n\x17RegisterServiceResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"X\n\x18UnregisterServiceRequest\x12\x10\n\x08instance\x18\x01 \x01(\t\x12\x14\n\x0cservice_type\x18\x02 \x01(\t\x12\x14\n\x0cservice_name\x18\x03 \x01(\t\"\'\n\x19UnregisterServiceResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"P\n\x10KeepAliveRequest\x12\x10\n\x08instance\x18\x01 \x01(\t\x12\x14\n\x0cservice_type\x18\x02 \x01(\t\x12\x14\n\x0cservice_name\x18\x03 \x01(\t\"\x1f\n\x11KeepAliveResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"&\n\x08Metadata\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t2\x8d\x02\n\tDiscovery\x12X\n\x0fRegisterService\x12!.discovery.RegisterServiceRequest\x1a\".discovery.RegisterServiceResponse\x12^\n\x11UnregisterService\x12#.discovery.UnregisterServiceRequest\x1a$.discovery.UnregisterServiceResponse\x12\x46\n\tKeepAlive\x12\x1b.discovery.KeepAliveRequest\x1a\x1c.discovery.KeepAliveResponseb\x06proto3'
+  serialized_pb=b'\n\x0f\x64iscovery.proto\x12\tdiscovery\"I\n\tServiceID\x12\x10\n\x08instance\x18\x01 \x01(\t\x12\x14\n\x0cservice_type\x18\x02 \x01(\t\x12\x14\n\x0cservice_name\x18\x03 \x01(\t\"\x96\x01\n\x16RegisterServiceRequest\x12(\n\nservice_id\x18\x01 \x01(\x0b\x32\x14.discovery.ServiceID\x12\x10\n\x08hostname\x18\x02 \x01(\t\x12\x0c\n\x04port\x18\x03 \x01(\x05\x12\x0b\n\x03ttl\x18\x04 \x01(\r\x12%\n\x08metadata\x18\x0f \x03(\x0b\x32\x13.discovery.Metadata\"%\n\x17RegisterServiceResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"D\n\x18UnregisterServiceRequest\x12(\n\nservice_id\x18\x01 \x01(\x0b\x32\x14.discovery.ServiceID\"\'\n\x19UnregisterServiceResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"<\n\x10KeepAliveRequest\x12(\n\nservice_id\x18\x01 \x01(\x0b\x32\x14.discovery.ServiceID\"\x1f\n\x11KeepAliveResponse\x12\n\n\x02ok\x18\x01 \x01(\x08\"&\n\x08Metadata\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t2\x8d\x02\n\tDiscovery\x12X\n\x0fRegisterService\x12!.discovery.RegisterServiceRequest\x1a\".discovery.RegisterServiceResponse\x12^\n\x11UnregisterService\x12#.discovery.UnregisterServiceRequest\x1a$.discovery.UnregisterServiceResponse\x12\x46\n\tKeepAlive\x12\x1b.discovery.KeepAliveRequest\x1a\x1c.discovery.KeepAliveResponseb\x06proto3'
 )
 
 
+
+
+_SERVICEID = _descriptor.Descriptor(
+  name='ServiceID',
+  full_name='discovery.ServiceID',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='instance', full_name='discovery.ServiceID.instance', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='service_type', full_name='discovery.ServiceID.service_type', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='service_name', full_name='discovery.ServiceID.service_name', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=30,
+  serialized_end=103,
+)
 
 
 _REGISTERSERVICEREQUEST = _descriptor.Descriptor(
@@ -34,49 +80,35 @@ _REGISTERSERVICEREQUEST = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='hostname', full_name='discovery.RegisterServiceRequest.hostname', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='service_id', full_name='discovery.RegisterServiceRequest.service_id', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='hostname', full_name='discovery.RegisterServiceRequest.hostname', index=1,
+      number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='port', full_name='discovery.RegisterServiceRequest.port', index=1,
-      number=2, type=5, cpp_type=1, label=1,
+      name='port', full_name='discovery.RegisterServiceRequest.port', index=2,
+      number=3, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='instance', full_name='discovery.RegisterServiceRequest.instance', index=2,
-      number=3, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='service_type', full_name='discovery.RegisterServiceRequest.service_type', index=3,
-      number=4, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='service_name', full_name='discovery.RegisterServiceRequest.service_name', index=4,
-      number=5, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='ttl', full_name='discovery.RegisterServiceRequest.ttl', index=5,
-      number=6, type=13, cpp_type=3, label=1,
+      name='ttl', full_name='discovery.RegisterServiceRequest.ttl', index=3,
+      number=4, type=13, cpp_type=3, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='metadata', full_name='discovery.RegisterServiceRequest.metadata', index=6,
+      name='metadata', full_name='discovery.RegisterServiceRequest.metadata', index=4,
       number=15, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -94,8 +126,8 @@ _REGISTERSERVICEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=31,
-  serialized_end=201,
+  serialized_start=106,
+  serialized_end=256,
 )
 
 
@@ -126,8 +158,8 @@ _REGISTERSERVICERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=203,
-  serialized_end=240,
+  serialized_start=258,
+  serialized_end=295,
 )
 
 
@@ -140,23 +172,9 @@ _UNREGISTERSERVICEREQUEST = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='instance', full_name='discovery.UnregisterServiceRequest.instance', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='service_type', full_name='discovery.UnregisterServiceRequest.service_type', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='service_name', full_name='discovery.UnregisterServiceRequest.service_name', index=2,
-      number=3, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
+      name='service_id', full_name='discovery.UnregisterServiceRequest.service_id', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
@@ -172,8 +190,8 @@ _UNREGISTERSERVICEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=242,
-  serialized_end=330,
+  serialized_start=297,
+  serialized_end=365,
 )
 
 
@@ -204,8 +222,8 @@ _UNREGISTERSERVICERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=332,
-  serialized_end=371,
+  serialized_start=367,
+  serialized_end=406,
 )
 
 
@@ -218,23 +236,9 @@ _KEEPALIVEREQUEST = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='instance', full_name='discovery.KeepAliveRequest.instance', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='service_type', full_name='discovery.KeepAliveRequest.service_type', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='service_name', full_name='discovery.KeepAliveRequest.service_name', index=2,
-      number=3, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
+      name='service_id', full_name='discovery.KeepAliveRequest.service_id', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
@@ -250,8 +254,8 @@ _KEEPALIVEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=373,
-  serialized_end=453,
+  serialized_start=408,
+  serialized_end=468,
 )
 
 
@@ -282,8 +286,8 @@ _KEEPALIVERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=455,
-  serialized_end=486,
+  serialized_start=470,
+  serialized_end=501,
 )
 
 
@@ -321,11 +325,15 @@ _METADATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=488,
-  serialized_end=526,
+  serialized_start=503,
+  serialized_end=541,
 )
 
+_REGISTERSERVICEREQUEST.fields_by_name['service_id'].message_type = _SERVICEID
 _REGISTERSERVICEREQUEST.fields_by_name['metadata'].message_type = _METADATA
+_UNREGISTERSERVICEREQUEST.fields_by_name['service_id'].message_type = _SERVICEID
+_KEEPALIVEREQUEST.fields_by_name['service_id'].message_type = _SERVICEID
+DESCRIPTOR.message_types_by_name['ServiceID'] = _SERVICEID
 DESCRIPTOR.message_types_by_name['RegisterServiceRequest'] = _REGISTERSERVICEREQUEST
 DESCRIPTOR.message_types_by_name['RegisterServiceResponse'] = _REGISTERSERVICERESPONSE
 DESCRIPTOR.message_types_by_name['UnregisterServiceRequest'] = _UNREGISTERSERVICEREQUEST
@@ -334,6 +342,13 @@ DESCRIPTOR.message_types_by_name['KeepAliveRequest'] = _KEEPALIVEREQUEST
 DESCRIPTOR.message_types_by_name['KeepAliveResponse'] = _KEEPALIVERESPONSE
 DESCRIPTOR.message_types_by_name['Metadata'] = _METADATA
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
+
+ServiceID = _reflection.GeneratedProtocolMessageType('ServiceID', (_message.Message,), {
+  'DESCRIPTOR' : _SERVICEID,
+  '__module__' : 'discovery_pb2'
+  # @@protoc_insertion_point(class_scope:discovery.ServiceID)
+  })
+_sym_db.RegisterMessage(ServiceID)
 
 RegisterServiceRequest = _reflection.GeneratedProtocolMessageType('RegisterServiceRequest', (_message.Message,), {
   'DESCRIPTOR' : _REGISTERSERVICEREQUEST,
@@ -393,8 +408,8 @@ _DISCOVERY = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=529,
-  serialized_end=798,
+  serialized_start=544,
+  serialized_end=813,
   methods=[
   _descriptor.MethodDescriptor(
     name='RegisterService',

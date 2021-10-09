@@ -1,7 +1,6 @@
 import grpc
 import logging
 import sqlalchemy
-import json
 import asyncio
 from sqlalchemy.orm import sessionmaker
 from functools import wraps
@@ -23,56 +22,36 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
         session = self.create_session()
         try:
             for event in events:
+                # Create Service object from event object.
                 if event.type == discovery.protobuf.Event.EventType.PUT:
                     key = event.kv.key.decode()
                     value = event.kv.value.decode()
+                    service = self._etcd_client.kv_to_service(key, value)
                 elif event.type == discovery.protobuf.Event.EventType.DELETE:
                     key = event.kv.key.decode()
+                    service = self._etcd_client.kv_to_service(key)
+                else:
+                    self._logger.error("Ignoring unknown event type (%s)", event.type)
+                    continue
 
-                result = self._etcd_client.breakout_key(key)
-                if result is None: continue
-                instance, service_type, service_name = result
+                # Look for the service in global cache, if it's valid.
+                if service is None: continue
+                result = service.find(self._engine, GlobalCache, session=session)
 
-                results = Cache.find(
-                    GlobalCache,
-                    self._engine,
-                    instance=instance,
-                    service_type=service_type,
-                    service_name=service_name,
-                    session=session,
-                )
-                assert results.count() == 0 or results.count() == 1
-
+                # Perform action.
                 if event.type == discovery.protobuf.Event.EventType.DELETE:
-                    if results.count() == 1:
-                        session.delete(results[0])
+                    if result is not None:
+                        session.delete(result)
                         num_updates += 1
                 elif event.type == discovery.protobuf.Event.EventType.PUT:
-                    metadata = json.loads(value)
-                    hostname = metadata.get('hostname', None)
-                    port = metadata.get('port', None)
-                    ttl = metadata.get('ttl', None)
-                    if 'hostname' in metadata: del metadata['hostname']
-                    if 'port' in metadata: del metadata['port']
-                    if 'ttl' in metadata: del metadata['ttl']
-                    # TODO: Figure out a better way to do this.
-
-                    service = GlobalCache(
-                        instance=instance,
-                        service_type=service_type,
-                        service_name=service_name,
-                        hostname=hostname,
-                        port=port,
-                        ttl=ttl,
-                        data=json.dumps(metadata),
-                    )
-                    updated = service.register(GlobalCache, self._engine, session=session)
+                    updated = service.create_cache(GlobalCache).register(self._engine, GlobalCache, session=session)
                     if updated:
                         num_updates += 1
 
+            # Commit changes.
             if num_updates > 0:
                 session.commit()
-                self._logger.info("Updated global cache from %s events.", len(events))
+                self._logger.info("Updated global cache from %s events.", num_updates)
         except Exception as e:
             session.rollback()
             self._logger.error("An error occurred when updating global cache: %s", e)
@@ -82,78 +61,56 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
         return Session()
 
     async def RegisterService(self, request, context):
-        metadata = { item.key: item.value for item in request.metadata }
-        service = LocalCache(
-            instance=request.instance,
-            service_type=request.service_type,
-            service_name=request.service_name,
-            hostname=request.hostname,
-            port=request.port,
-            ttl=request.ttl,
-            data=json.dumps(metadata),
-        )
-
-        updated = service.register(LocalCache, self._engine)
+        service = discovery.core.Service.from_grpc_request(request)
+        updated = service.create_cache(LocalCache).register(self._engine, LocalCache)
         if updated:
-            self._logger.info("Service added (instance: %s, type: %s, name: %s)", request.instance, request.service_type, request.service_name)
+            self._logger.info("Service added (instance: %s, type: %s, name: %s)", service.instance, service.service_type, service.service_name)
             # Forward update to the global discovery service.
-            await self._etcd_client.register_service(request, lease_id=self._lease_manager.lease_id)
+            await self._etcd_client.register_service(service, lease_id=self._lease_manager.lease_id)
 
-        self.reset_service_timeout(request.instance, request.service_type, request.service_name, request.ttl)
+        self.reset_service_timeout(service.instance, service.service_type, service.service_name, int(service.ttl))
 
         return discovery.protobuf.RegisterServiceResponse(ok=True)
 
     async def UnregisterService(self, request, context):
         session = self.create_session()
-        results = Cache.find(
-            LocalCache,
-            self._engine,
-            instance=request.instance,
-            service_type=request.service_type,
-            service_name=request.service_name,
-            session=session,
-        )
-        assert results.count() == 0 or results.count() == 1
+        service = discovery.core.Service.from_grpc_request(request)
+        result = service.find(self._engine, LocalCache, session=session)
 
-        if results.count() == 1:
+        ok = True
+        if result is not None:
             try:
-                session.delete(results[0])
+                session.delete(result)
                 session.commit()
-                self._logger.info("Service deleted (instance: %s, type: %s, name: %s)", request.instance, request.service_type, request.service_name)
+                self._logger.info("Service deleted (instance: %s, type: %s, name: %s)", service.instance, service.service_type, service.service_name)
                 # Forward delete to the global discovery service.
-                await self._etcd_client.unregister_service(request)
-                ok = True
+                await self._etcd_client.unregister_service(service)
             except:
                 session.rollback()
                 ok = False
-        else:
-            ok = True
 
         return discovery.protobuf.UnregisterServiceResponse(ok=ok)
 
     async def KeepAlive(self, request, context):
         session = self.create_session()
-        results = Cache.find(
-            LocalCache,
-            self._engine,
-            instance=request.instance,
-            service_type=request.service_type,
-            service_name=request.service_name,
-            session=session,
-        )
-        if results.count() == 1:
-            result = results[0]
-            self.reset_service_timeout(request.instance, request.service_type, request.service_name, result.ttl)
+        service = discovery.core.Service.from_grpc_request(request)
+        result = service.find(self._engine, LocalCache, session=session)
 
-        ok = results.count() == 1
+        if result is not None:
+            self.reset_service_timeout(service.instance, service.service_type, service.service_name, int(result.ttl))
+
+        ok = result is not None
         return discovery.protobuf.KeepAliveResponse(ok=ok)
 
     async def service_expiration(self, instance, service_type, service_name, ttl):
         await asyncio.sleep(ttl)
-        request = discovery.protobuf.UnregisterServiceRequest(
+        service_id = discovery.protobuf.ServiceID(
             instance=instance,
             service_type=service_type,
             service_name=service_name,
+        )
+        request = discovery.protobuf.UnregisterServiceRequest(
+            service_id=service_id,
         )
         await self.UnregisterService(request, None)
 
@@ -167,14 +124,16 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
         self._task_list[task_name] = asyncio.create_task(self.service_expiration(instance, service_type, service_name, ttl))
 
 class DiscoveryServer(discovery.core.GrpcServerBase):
-    def __init__(self, etcd_hostname, etcd_port, etcd_lease_ttl, etcd_lease_keep_alive, service_name, *args, **kwargs):
+    def __init__(self, etcd_hostname, etcd_port, etcd_lease_ttl, etcd_lease_keep_alive, etcd_namespace, service_name, sync_interval, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._logger = logging.getLogger("discovery.server")
+        self._sync_interval = sync_interval
 
         # Create Etcd client.
         self._etcd_client = discovery.etcd.EtcdClient(
             etcd_hostname,
-            etcd_port
+            etcd_port,
+            namespace=etcd_namespace,
         )
 
         # Create Etcd lease manager.
@@ -204,7 +163,7 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
         # Create watch manager.
         self._watch_manager = discovery.etcd.WatchManager(
             self._etcd_client,
-            "/discovery/",
+            self._etcd_client.namespace,
             watch_callback=self._servicer.watch_callback,
         )
 
@@ -212,7 +171,7 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
         await super().start()
 
         # Inherit global services.
-        global_kvs = await self._etcd_client.get_prefix("/discovery/")
+        global_kvs = await self._etcd_client.get_prefix(self._etcd_client.namespace)
         if global_kvs is not None:
             global_services = self._etcd_client.unpack_services(global_kvs)
             if len(global_services) > 0:
@@ -245,3 +204,35 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
 
         # Start watcher.
         await self._watch_manager.start()
+
+        # Launch local->global synchronization.
+        task = asyncio.get_event_loop().create_task(self._sync_local_to_global())
+
+    async def _sync_local_to_global(self):
+        while True:
+            transactions = list()
+            Session = sessionmaker(self._engine)
+            session = Session()
+
+            for entry in session.query(LocalCache).all():
+                # Check whether this local service is a member of the global cache.
+                service = entry.to_service()
+                result = service.find(self._engine, GlobalCache, session=session)
+                if result is not None and result == entry:
+                    continue
+
+                # Local cache entry does not match global cache entry. In this
+                # scenario, we trust the local cache and send an update to the
+                # global service.
+                transactions.append(self._etcd_client.service_to_kv(service))
+
+            if len(transactions) > 0:
+                response = await self._etcd_client.put_many(transactions, lease_id=self._lease_manager.lease_id)
+                if response is None:
+                    self._logger.critical("Failed to synchronize local->global cache.")
+                    return
+
+            self._logger.info("Successfully synchronized local->global cache.")
+
+            # Sleep for two minutes before attempting synchronization again.
+            await asyncio.sleep(self._sync_interval)

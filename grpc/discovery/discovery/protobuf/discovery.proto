@@ -8,13 +8,17 @@ service Discovery {
     rpc KeepAlive(KeepAliveRequest) returns (KeepAliveResponse);
 }
 
+message ServiceID {
+    string instance = 1;
+    string service_type = 2;
+    string service_name = 3;
+}
+
 message RegisterServiceRequest {
-    string hostname = 1;
-    int32 port = 2;
-    string instance = 3;
-    string service_type = 4;
-    string service_name = 5;
-    uint32 ttl = 6;
+    ServiceID service_id = 1;
+    string hostname = 2;
+    int32 port = 3;
+    uint32 ttl = 4;
     repeated Metadata metadata = 15;
 }
 
@@ -23,9 +27,7 @@ message RegisterServiceResponse {
 }
 
 message UnregisterServiceRequest {
-    string instance = 1;
-    string service_type = 2;
-    string service_name = 3;
+    ServiceID service_id = 1;
 }
 
 message UnregisterServiceResponse {
@@ -33,9 +35,7 @@ message UnregisterServiceResponse {
 }
 
 message KeepAliveRequest {
-    string instance = 1;
-    string service_type = 2;
-    string service_name = 3;
+    ServiceID service_id = 1;
 }
 
 message KeepAliveResponse {
