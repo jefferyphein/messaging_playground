@@ -55,6 +55,7 @@ class LeaseManager:
         lease_id = await self._etcd_client.lease(self._ttl)
         if lease_id is None:
             return None
+        self._lease_id = lease_id
 
         await self._etcd_client.put(self._lease_key, str(lease_id), lease_id=lease_id)
 

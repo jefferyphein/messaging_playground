@@ -1,5 +1,6 @@
 import json
 import discovery
+import collections.abc
 from sqlalchemy.orm import sessionmaker
 
 class ServiceData:
@@ -12,6 +13,25 @@ class ServiceData:
     def dict(self):
         d = { 'hostname': self.hostname, 'port': self.port, 'ttl': self.ttl }
         return { **d, **self.metadata }
+
+class ServiceMap(collections.abc.Mapping):
+    def __init__(self, services=list()):
+        super().__init__()
+        self._dict = dict()
+        for service in services:
+            self._dict[(service.instance, service.service_type, service.service_name)] = service
+
+    def __getitem__(self, key):
+        return self._dict[key]
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+    def __contains__(self, service):
+        return (service.instance, service.service_type, service.service_name) in self._dict
 
 class Service:
     def __init__(self, instance, service_type, service_name, **service_metadata):

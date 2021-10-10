@@ -16,7 +16,7 @@ def _handle_errors_async(func):
 class EtcdClient:
     def __init__(self, hostname, port, namespace="/discovery/"):
         self.namespace = namespace
-        if self.namespace[-1] != "/":
+        if not self.namespace.endswith("/"):
             self.namespace += "/"
 
         self._channel = grpc.aio.insecure_channel("%s:%d" % (hostname, port))
@@ -167,4 +167,4 @@ class EtcdClient:
             service = self.kv_to_service(key, value)
             if service is not None:
                 services.append(service)
-        return services
+        return discovery.core.ServiceMap(services)

@@ -101,7 +101,7 @@ class Cache:
             and self.service_type == other.service_type \
             and self.service_name == other.service_name \
             and self.hostname == other.hostname \
-            and self.port == other.port \
+            and int(self.port) == int(other.port) \
             and json.loads(self.data, parse_int=str) == json.loads(other.data, parse_int=str)
 
 
@@ -111,7 +111,7 @@ class LocalCache(discovery.Base, Cache):
     @staticmethod
     def register_service(service, engine, session=None):
         entry = service.create_cache(LocalCache)
-        entry.register(engine, LocalCache, session=session)
+        return entry.register(engine, LocalCache, session=session)
 
 
 class GlobalCache(discovery.Base, Cache):
@@ -120,7 +120,7 @@ class GlobalCache(discovery.Base, Cache):
     @staticmethod
     def register_service(service, engine, session=None):
         entry = service.create_cache(GlobalCache)
-        entry.register(engine, GlobalCache, session=session)
+        return entry.register(engine, GlobalCache, session=session)
 
 
 sqlalchemy.Index('local_service_index', LocalCache.instance, LocalCache.service_type)

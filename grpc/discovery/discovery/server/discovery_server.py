@@ -31,15 +31,15 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
                     key = event.kv.key.decode()
                     service = self._etcd_client.kv_to_service(key)
                 else:
-                    self._logger.error("Ignoring unknown event type (%s)", event.type)
+                    self._logger.warning("Ignoring unknown event type (%s) in watch callback.", event.type)
                     continue
 
                 # Look for the service in global cache, if it's valid.
                 if service is None: continue
-                result = service.find(self._engine, GlobalCache, session=session)
 
                 # Perform action.
                 if event.type == discovery.protobuf.Event.EventType.DELETE:
+                    result = service.find(self._engine, GlobalCache, session=session)
                     if result is not None:
                         session.delete(result)
                         num_updates += 1
@@ -124,10 +124,14 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
         self._task_list[task_name] = asyncio.create_task(self.service_expiration(instance, service_type, service_name, ttl))
 
 class DiscoveryServer(discovery.core.GrpcServerBase):
-    def __init__(self, etcd_hostname, etcd_port, etcd_lease_ttl, etcd_lease_keep_alive, etcd_namespace, service_name, sync_interval, *args, **kwargs):
+    def __init__(self, etcd_hostname, etcd_port, etcd_lease_ttl, etcd_lease_keep_alive, etcd_namespace, etcd_lease_namespace, service_name, sync_interval, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._logger = logging.getLogger("discovery.server")
         self._sync_interval = sync_interval
+
+        # Make sure the lease namespace ends with a forward slash.
+        if not etcd_lease_namespace.endswith("/"):
+            etcd_lease_namespace += "/"
 
         # Create Etcd client.
         self._etcd_client = discovery.etcd.EtcdClient(
@@ -140,7 +144,7 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
         self._service_name = service_name
         self._lease_manager = discovery.etcd.LeaseManager(
             self._etcd_client,
-            "/discovery-leases/" + self._service_name,
+            etcd_lease_namespace + self._service_name,
             etcd_lease_ttl,
             etcd_lease_keep_alive,
         )
@@ -170,34 +174,21 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
     async def start(self):
         await super().start()
 
-        # Inherit global services.
-        global_kvs = await self._etcd_client.get_prefix(self._etcd_client.namespace)
-        if global_kvs is not None:
-            global_services = self._etcd_client.unpack_services(global_kvs)
-            if len(global_services) > 0:
-                Session = sessionmaker(bind=self._engine)
-                session = Session()
-                try:
-                    for service in global_services:
-                        GlobalCache.register_service(service, self._engine, session=session)
-                    session.commit()
-                    self._logger.info("Added %s service(s) to global cache.", len(global_services))
-                except:
-                    session.rollback()
-                    self._logger.error("Failed to import global services.")
+        # Synchronize global cache with remote cache.
+        await self._sync_remote_to_global()
 
         # Inherit local services.
         inherited_kvs = await self._lease_manager.start()
-        inherited_services = self._etcd_client.unpack_services(inherited_kvs)
-        if len(inherited_services) > 0:
+        inherited_services_map = self._etcd_client.unpack_services(inherited_kvs)
+        if len(inherited_services_map) > 0:
             Session = sessionmaker(bind=self._engine)
             session = Session()
             try:
-                for service in inherited_services:
+                for key,service in inherited_services_map.items():
                     LocalCache.register_service(service, self._engine, session=session)
                     self._servicer.reset_service_timeout(service.instance, service.service_type, service.service_name, int(service.ttl))
                 session.commit()
-                self._logger.info("Inherited %s service(s) to local cache.", len(inherited_services))
+                self._logger.info("Inherited %s service(s) to local cache.", len(inherited_services_map))
             except:
                 session.rollback()
                 self._logger.error("Failed to inherit local services.")
@@ -206,33 +197,77 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
         await self._watch_manager.start()
 
         # Launch local->global synchronization.
-        task = asyncio.get_event_loop().create_task(self._sync_local_to_global())
+        #task = asyncio.get_event_loop().create_task(self._sync_local_to_global())
+        task = asyncio.get_event_loop().create_task(self._synchronize())
+
+    async def _synchronize(self):
+        while True:
+            # Copy the remote cache into the global cache
+            await self._sync_remote_to_global()
+
+            # Copy the local cache into the global cache. This may trigger
+            # updates to the remote cache.
+            await self._sync_local_to_global()
+
+            # Sleep for the specified interval before synchronizing again.
+            await asyncio.sleep(self._sync_interval)
+
+    async def _sync_remote_to_global(self):
+        remote_kvs = await self._etcd_client.get_prefix(self._etcd_client.namespace)
+        if remote_kvs is None:
+            self._logger.error("Failed to synchronize services from remote endpoint (reason: connection failed).")
+            return
+
+        remote_services_map = self._etcd_client.unpack_services(remote_kvs)
+        Session = sessionmaker(bind=self._engine)
+        session = Session()
+
+        try:
+            # Any service listed in the remote cache that are not in the global
+            # cache will be added to the global cache.
+            num_updated = 0
+            for key,service in remote_services_map.items():
+                updated = GlobalCache.register_service(service, self._engine, session=session)
+                if updated:
+                    num_updated += 1
+
+            # Any service listed in the global cache that was not in the remote
+            # cache will be deleted from the global cache.
+            num_deleted = 0
+            for entry in session.query(GlobalCache).all():
+                service = entry.to_service()
+                if service not in remote_services_map:
+                    session.delete(entry)
+                    num_deleted += 1
+
+            session.commit()
+            self._logger.info("Successfully synchronized remote->global cache (updates: %s, deletes: %s)", num_updated, num_deleted)
+        except Exception as e:
+            raise e
+            session.rollback()
+            self._logger.error("Failed to synchronize global cache from remote endpoint (reason: database error).")
 
     async def _sync_local_to_global(self):
-        while True:
-            transactions = list()
-            Session = sessionmaker(self._engine)
-            session = Session()
+        transactions = list()
+        Session = sessionmaker(self._engine)
+        session = Session()
 
-            for entry in session.query(LocalCache).all():
-                # Check whether this local service is a member of the global cache.
-                service = entry.to_service()
-                result = service.find(self._engine, GlobalCache, session=session)
-                if result is not None and result == entry:
-                    continue
+        for entry in session.query(LocalCache).all():
+            # Check whether this local service is a member of the global cache.
+            service = entry.to_service()
+            result = service.find(self._engine, GlobalCache, session=session)
+            if result is not None and result == entry:
+                continue
 
-                # Local cache entry does not match global cache entry. In this
-                # scenario, we trust the local cache and send an update to the
-                # global service.
-                transactions.append(self._etcd_client.service_to_kv(service))
+            # Local cache entry does not match global cache entry. In this
+            # scenario, we trust the local cache and send an update to the
+            # global service.
+            transactions.append(self._etcd_client.service_to_kv(service))
 
-            if len(transactions) > 0:
-                response = await self._etcd_client.put_many(transactions, lease_id=self._lease_manager.lease_id)
-                if response is None:
-                    self._logger.critical("Failed to synchronize local->global cache.")
-                    return
+        if len(transactions) > 0:
+            response = await self._etcd_client.put_many(transactions, lease_id=self._lease_manager.lease_id)
+            if response is None:
+                self._logger.critical("Failed to synchronize local->global cache.")
+                return
 
-            self._logger.info("Successfully synchronized local->global cache.")
-
-            # Sleep for two minutes before attempting synchronization again.
-            await asyncio.sleep(self._sync_interval)
+        self._logger.info("Successfully synchronized local->global cache (num_puts: %s).", len(transactions))

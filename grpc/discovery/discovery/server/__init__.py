@@ -57,6 +57,7 @@ async def _service(*args, **kwargs):
 @click.option("--etcd-lease-ttl", type=int, default=60, help="Etcd lease time-to-live (in seconds)")
 @click.option("--etcd-lease-keep-alive", type=int, default=45, help="Etcd lease keep-alive interval (in seconds)")
 @click.option("--etcd-namespace", type=str, default="/discovery", help="Etcd key namespace for storing updates")
+@click.option("--etcd-lease-namespace", type=str, default="/discovery-leases", help="Etcd key namespace for storing lease IDs")
 @click.option("--sync-interval", type=float, default=120.0, help="How frequently (in seconds) to synchronize local cache with global cache")
 @click.option("--service-name", type=str, default=str(uuid.uuid4()), help="Unique name for this discovery service")
 @click.option("--key", type=click.File('rb'), default=None, help="Server key file")

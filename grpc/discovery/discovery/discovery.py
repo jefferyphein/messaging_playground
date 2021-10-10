@@ -1,6 +1,16 @@
 import os
 import grpc
-import discovery
+import discovery.exceptions
+
+def _handle_errors(func):
+    def handle_errors(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise discovery.exceptions.EtcdConnectionError("Unable to connect to remote host.")
+    return handle_errors
+
 
 class Discovery:
     def __init__(self, host, cert=None):
@@ -28,6 +38,7 @@ class Discovery:
         # Create the RPC stub.
         self._stub = discovery.protobuf.DiscoveryStub(self._channel)
 
+    @_handle_errors
     def register_service(self, hostname, port, instance, service_type, service_name, ttl, metadata=dict()):
         service_id = discovery.protobuf.ServiceID(
             instance=instance,
@@ -56,6 +67,7 @@ class Discovery:
 
         response = self._stub.RegisterService(request)
 
+    @_handle_errors
     def unregister_service(self, instance, service_type, service_name):
         service_id = discovery.protobuf.ServiceID(
             instance=instance,
@@ -68,6 +80,7 @@ class Discovery:
 
         response = self._stub.UnregisterService(request)
 
+    @_handle_errors
     def keep_alive(self, instance, service_type, service_name):
         service_id = discovery.protobuf.ServiceID(
             instance=instance,
