@@ -19,9 +19,7 @@ async def shutdown(loop, aio_server, signal=None):
     logger.info("Cancelling all tasks.")
     tasks = [ task for task in asyncio.all_tasks() if task is not asyncio.current_task() ]
     for task in tasks:
-        print(task.get_name())
         task.cancel()
-        await task
     logger.info(f"Cancelling {len(tasks)} outstanding task(s).")
     await asyncio.gather(*tasks, return_exceptions=True)
     loop.stop()
@@ -58,6 +56,7 @@ async def _service(*args, **kwargs):
 @click.option("--etcd-lease-keep-alive", type=int, default=45, help="Etcd lease keep-alive interval (in seconds)")
 @click.option("--etcd-namespace", type=str, default="/discovery", help="Etcd key namespace for storing updates")
 @click.option("--etcd-lease-namespace", type=str, default="/discovery-leases", help="Etcd key namespace for storing lease IDs")
+@click.option("--etcd-max-txn-ops", type=int, default=128, help="The maximum number of Txn ops per request. This value is set by etcd server configuration parameter MaxTxnOps")
 @click.option("--sync-interval", type=float, default=120.0, help="How frequently (in seconds) to synchronize local cache with global cache")
 @click.option("--service-name", type=str, default=str(uuid.uuid4()), help="Unique name for this discovery service")
 @click.option("--key", type=click.File('rb'), default=None, help="Server key file")

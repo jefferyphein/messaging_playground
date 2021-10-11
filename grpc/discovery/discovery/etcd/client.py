@@ -11,10 +11,13 @@ def _handle_errors_async(func):
         except grpc.aio.AioRpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
                 return None
+            else:
+                print("Unexpected gRPC error (code: %s, details: %s)" % (e.code(), e.details()))
+                raise
     return handle_errors_async
 
 class EtcdClient:
-    def __init__(self, hostname, port, namespace="/discovery/"):
+    def __init__(self, hostname, port, namespace="/discovery/", max_txn_ops=128):
         self.namespace = namespace
         if not self.namespace.endswith("/"):
             self.namespace += "/"
@@ -23,6 +26,7 @@ class EtcdClient:
         self._lease_stub = discovery.protobuf.LeaseStub(self._channel)
         self._kv_stub = discovery.protobuf.KVStub(self._channel)
         self._watch_stub = discovery.protobuf.WatchStub(self._channel)
+        self._max_txn_ops = max_txn_ops
 
     async def channel_ready(self):
         await self._channel.channel_ready()
@@ -69,23 +73,28 @@ class EtcdClient:
 
     @_handle_errors_async
     async def get_many(self, keys):
-        request = discovery.protobuf.TxnRequest(
-            success=list(
-                discovery.protobuf.RequestOp(
-                    request_range=discovery.protobuf.RangeRequest(
-                        key=key.encode()
-                    )
-                ) for key in keys
+        results = dict()
+        for n in range(0, len(keys), self._max_txn_ops):
+            request = discovery.protobuf.TxnRequest(
+                success=list(
+                    discovery.protobuf.RequestOp(
+                        request_range=discovery.protobuf.RangeRequest(
+                            key=key.encode()
+                        )
+                    ) for key in keys[n:n+self._max_txn_ops]
+                )
             )
-        )
-        response = await self._kv_stub.Txn(request)
-        if not response.succeeded:
-            return dict()
+            response = await self._kv_stub.Txn(request)
 
-        return {
-            item.response_range.kvs[0].key.decode():
-                item.response_range.kvs[0].value.decode() for item in response.responses
-        }
+            if not response.succeeded:
+                continue
+
+            results.update({
+                item.response_range.kvs[0].key.decode():
+                    item.response_range.kvs[0].value.decode() for item in response.responses
+            })
+
+        return results
 
     @_handle_errors_async
     async def put(self, key, value, lease_id=None):
@@ -98,18 +107,22 @@ class EtcdClient:
 
     @_handle_errors_async
     async def put_many(self, kv_pairs, lease_id=None):
-        request = discovery.protobuf.TxnRequest(
-            success=list(
-                discovery.protobuf.RequestOp(
-                    request_put=discovery.protobuf.PutRequest(
-                        key=key.encode(),
-                        value=value.encode(),
-                        lease=lease_id,
-                    )
-                ) for key, value in kv_pairs
+        responses = list()
+        for n in range(0, len(kv_pairs), self._max_txn_ops):
+            request = discovery.protobuf.TxnRequest(
+                success=list(
+                    discovery.protobuf.RequestOp(
+                        request_put=discovery.protobuf.PutRequest(
+                            key=key.encode(),
+                            value=value.encode(),
+                            lease=lease_id,
+                        )
+                    ) for key, value in kv_pairs[n:n+self._max_txn_ops]
+                )
             )
-        )
-        return await self._kv_stub.Txn(request)
+            response = await self._kv_stub.Txn(request)
+            responses.append(response)
+        return responses
 
     @_handle_errors_async
     async def rm(self, key):

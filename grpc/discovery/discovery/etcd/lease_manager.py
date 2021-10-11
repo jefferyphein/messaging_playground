@@ -38,9 +38,9 @@ class LeaseManager:
     async def _lease_keep_alive(self):
         while True:
             self._logger.info("Starting lease keep-alive stream.")
-            call = self._etcd_client.lease_keep_alive(self)
 
             try:
+                call = self._etcd_client.lease_keep_alive(self)
                 async for response in call:
                     if response.TTL == 0:
                         self._logger.info("Failed to refresh lease (lease_id: %s)", self._lease_id)
@@ -50,6 +50,10 @@ class LeaseManager:
             except grpc.aio.AioRpcError as e:
                 self._logger.critical("No connection to remote host, waiting for channel to be ready again.")
                 await self._etcd_client.channel_ready()
+            except asyncio.exceptions.InvalidStateError:
+                self._logger.warning("Invalid state error, restarting keep-alive stream")
+            except Exception as e:
+                self._logger.warning("Caught an exception: %s", e)
 
     async def create_lease(self):
         lease_id = await self._etcd_client.lease(self._ttl)

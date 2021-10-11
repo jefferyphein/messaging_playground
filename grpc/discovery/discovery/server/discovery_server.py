@@ -124,7 +124,7 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
         self._task_list[task_name] = asyncio.create_task(self.service_expiration(instance, service_type, service_name, ttl))
 
 class DiscoveryServer(discovery.core.GrpcServerBase):
-    def __init__(self, etcd_hostname, etcd_port, etcd_lease_ttl, etcd_lease_keep_alive, etcd_namespace, etcd_lease_namespace, service_name, sync_interval, *args, **kwargs):
+    def __init__(self, etcd_hostname, etcd_port, etcd_lease_ttl, etcd_lease_keep_alive, etcd_namespace, etcd_lease_namespace, etcd_max_txn_ops, service_name, sync_interval, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._logger = logging.getLogger("discovery.server")
         self._sync_interval = sync_interval
@@ -138,6 +138,7 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
             etcd_hostname,
             etcd_port,
             namespace=etcd_namespace,
+            max_txn_ops=etcd_max_txn_ops,
         )
 
         # Create Etcd lease manager.
@@ -197,7 +198,6 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
         await self._watch_manager.start()
 
         # Launch local->global synchronization.
-        #task = asyncio.get_event_loop().create_task(self._sync_local_to_global())
         task = asyncio.get_event_loop().create_task(self._synchronize())
 
     async def _synchronize(self):
@@ -243,9 +243,9 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
             session.commit()
             self._logger.info("Successfully synchronized remote->global cache (updates: %s, deletes: %s)", num_updated, num_deleted)
         except Exception as e:
-            raise e
             session.rollback()
             self._logger.error("Failed to synchronize global cache from remote endpoint (reason: database error).")
+            raise e
 
     async def _sync_local_to_global(self):
         transactions = list()
