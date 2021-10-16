@@ -2,6 +2,7 @@ import grpc
 import re
 import json
 import asyncio
+import threading
 import discovery
 
 def _handle_errors_async(func):
@@ -151,28 +152,35 @@ class EtcdClient:
         else:
             return list(key.decode() for key in response.keys)
 
-    async def _lease_refresh_iterator(self, lease_manager):
-        while True:
-            yield discovery.protobuf.LeaseKeepAliveRequest(
-                ID=lease_manager.lease_id
-            )
-            await asyncio.sleep(lease_manager.keep_alive)
-
     def lease_keep_alive(self, lease_manager):
-        return self._lease_stub.LeaseKeepAlive(self._lease_refresh_iterator(lease_manager))
+        done_event = threading.Event()
 
-    async def _watch_iterator(self, watch_manager):
-        key = watch_manager.key_prefix.encode()
-        range_end = discovery.etcd.range_end(key)
-        yield discovery.protobuf.WatchRequest(
-            create_request=discovery.protobuf.WatchCreateRequest(
-                key=key,
-                range_end=range_end,
-            )
-        )
+        async def _iterator(_manager):
+            while not done_event.is_set():
+                yield discovery.protobuf.LeaseKeepAliveRequest(
+                    ID=_manager.lease_id
+                )
+                await asyncio.sleep(_manager.keep_alive)
+
+        def _cancel(*args, **kwargs):
+            done_event.set()
+
+        call = self._lease_stub.LeaseKeepAlive(_iterator(lease_manager))
+        call.add_done_callback(_cancel)
+        return call
 
     def watch(self, watch_manager):
-        return self._watch_stub.Watch(self._watch_iterator(watch_manager))
+        async def _iterator(_manager):
+            key = _manager.key_prefix.encode()
+            range_end = discovery.etcd.range_end(key)
+            yield discovery.protobuf.WatchRequest(
+                create_request=discovery.protobuf.WatchCreateRequest(
+                    key=key,
+                    range_end=range_end,
+                )
+            )
+
+        return self._watch_stub.Watch(_iterator(watch_manager))
 
     def unpack_services(self, kvs):
         services = list()

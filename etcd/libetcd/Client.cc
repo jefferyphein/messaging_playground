@@ -8,11 +8,20 @@ Client::Client(std::string address)
     , watch_stub_(::etcdserverpb::Watch::NewStub(::grpc::CreateChannel(address, ::grpc::InsecureChannelCredentials())))
 {
     cq_thread_ = std::unique_ptr<std::thread>(new std::thread(&Client::run_completion_queue_, this));
+    watch_stream_ = std::unique_ptr<WatchStream>(new WatchStream(watch_stub_.get(), &cq_));
 }
 
 Client::~Client() {
+    if (watch_stream_) {
+        // Close the watch stream.
+        watch_stream_->close();
+        watch_stream_->wait_for_close();
+    }
+
+    // Stop the completion queue.
+    cq_.Shutdown();
+
     if (cq_thread_) {
-        cq_.Shutdown();
         cq_thread_->join();
     }
 }
@@ -68,15 +77,14 @@ Future Client::del_range(std::string key,
 
 std::unique_ptr<Watch> Client::watch(std::string key,
                                      std::string range_end) {
-    std::cout << key << ", " << range_end << std::endl;
-    return nullptr;
+    return watch_stream_->create_watch(key, range_end).get();
 }
 
 void Client::run_completion_queue_() {
     void *tag;
     bool ok = false;
     while (cq_.Next(&tag, &ok)) {
-        static_cast<AsyncEtcdBase*>(tag)->proceed();
+        static_cast<AsyncEtcdBase*>(tag)->proceed(ok);
     }
 }
 

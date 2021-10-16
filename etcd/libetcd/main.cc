@@ -62,13 +62,20 @@ void test_del_range(::libetcd::Client& client) {
     }
 }
 
+void test_watch(::libetcd::Client& client) {
+    std::unique_ptr<::libetcd::Watch> watch = client.watch("/driver/state/0");
+    //std::this_thread::sleep_for(std::chrono::seconds(60));
+}
+
 int main(int argc, char **argv) {
     ::libetcd::Client client("localhost:2379");
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    test_get(client);
-    test_set(client);
-    test_del(client);
-    test_del_range(client);
+    //test_watch(client);
+    //test_get(client);
+    //test_set(client);
+    //test_del(client);
+    //test_del_range(client);
 
     return EXIT_SUCCESS;
 }

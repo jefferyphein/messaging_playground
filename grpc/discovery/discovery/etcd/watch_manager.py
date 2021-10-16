@@ -15,17 +15,19 @@ class WatchManager:
         while True:
             self._logger.info("Starting watch (prefix: %s)", self._key_prefix)
 
+            call = self._etcd_client.watch(self)
+
             try:
-                call = self._etcd_client.watch(self)
                 async for response in call:
                     await self._watch_callback(response.events)
             except grpc.aio.AioRpcError as e:
                 self._logger.critical("No connection to remote host, waiting for channel to by ready again.")
-                await self._etcd_client.channel_ready()
             except asyncio.exceptions.InvalidStateError:
                 self._logger.warning("Invalid state error, restarting watch stream")
             except Exception as e:
                 self._logger.warning("Caught an exception: %s", e)
+
+            await self._etcd_client.channel_ready()
 
     async def start(self):
         self._watch_task = asyncio.create_task(self._watch())
