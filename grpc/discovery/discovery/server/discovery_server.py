@@ -265,6 +265,7 @@ class DiscoveryServer(discovery.core.GrpcServerBase):
             transactions.append(self._etcd_client.service_to_kv(service))
 
         if len(transactions) > 0:
+            # Forward transactions to the global discovery service.
             response = await self._etcd_client.put_many(transactions, lease_id=self._lease_manager.lease_id)
             if response is None:
                 self._logger.critical("Failed to synchronize local->global cache.")
