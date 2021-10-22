@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+service Saiteki {
+    rpc ObjectiveFunction(CandidateRequest) returns (CandidateResponse);
+    rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+}
+
+message CandidateRequest {
+    repeated Parameter parameters = 1;
+}
+
+message Parameter {
+    string name = 1;
+    oneof type {
+        int32 int32_value = 2;
+        int64 int64_value = 3;
+        float float_value = 4;
+        string string_value = 5;
+    }
+}
+
+message CandidateResponse {
+    float score = 1;
+}
+
+message ShutdownRequest {
+}
+
+message ShutdownResponse {
+}

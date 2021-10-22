@@ -1,0 +1,2 @@
+include saiteki/protobuf/*.proto
+include saiteki/protobuf/Makefile
