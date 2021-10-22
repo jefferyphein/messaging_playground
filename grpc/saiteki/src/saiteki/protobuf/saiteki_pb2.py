@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\rsaiteki.proto\"2\n\x10\x43\x61ndidateRequest\x12\x1e\n\nparameters\x18\x01 \x03(\x0b\x32\n.Parameter\"~\n\tParameter\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x15\n\x0bint32_value\x18\x02 \x01(\x05H\x00\x12\x15\n\x0bint64_value\x18\x03 \x01(\x03H\x00\x12\x15\n\x0b\x66loat_value\x18\x04 \x01(\x02H\x00\x12\x16\n\x0cstring_value\x18\x05 \x01(\tH\x00\x42\x06\n\x04type\"\"\n\x11\x43\x61ndidateResponse\x12\r\n\x05score\x18\x01 \x01(\x02\"\x11\n\x0fShutdownRequest\"\x12\n\x10ShutdownResponse2v\n\x07Saiteki\x12:\n\x11ObjectiveFunction\x12\x11.CandidateRequest\x1a\x12.CandidateResponse\x12/\n\x08Shutdown\x12\x10.ShutdownRequest\x1a\x11.ShutdownResponseb\x06proto3'
+  serialized_pb=b'\n\rsaiteki.proto\"S\n\x10\x43\x61ndidateRequest\x12\x1f\n\x17objective_function_json\x18\x01 \x01(\t\x12\x1e\n\nparameters\x18\x02 \x03(\x0b\x32\n.Parameter\"f\n\tParameter\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x15\n\x0bint32_value\x18\x02 \x01(\x05H\x00\x12\x15\n\x0bint64_value\x18\x03 \x01(\x03H\x00\x12\x15\n\x0b\x66loat_value\x18\x04 \x01(\x02H\x00\x42\x06\n\x04type\"\"\n\x11\x43\x61ndidateResponse\x12\r\n\x05score\x18\x01 \x01(\x02\"\x11\n\x0fShutdownRequest\"\x12\n\x10ShutdownResponse2v\n\x07Saiteki\x12:\n\x11ObjectiveFunction\x12\x11.CandidateRequest\x1a\x12.CandidateResponse\x12/\n\x08Shutdown\x12\x10.ShutdownRequest\x1a\x11.ShutdownResponseb\x06proto3'
 )
 
 
@@ -34,8 +34,15 @@ _CANDIDATEREQUEST = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='parameters', full_name='CandidateRequest.parameters', index=0,
-      number=1, type=11, cpp_type=10, label=3,
+      name='objective_function_json', full_name='CandidateRequest.objective_function_json', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='parameters', full_name='CandidateRequest.parameters', index=1,
+      number=2, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -53,7 +60,7 @@ _CANDIDATEREQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=17,
-  serialized_end=67,
+  serialized_end=100,
 )
 
 
@@ -93,13 +100,6 @@ _PARAMETER = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='string_value', full_name='Parameter.string_value', index=4,
-      number=5, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -117,8 +117,8 @@ _PARAMETER = _descriptor.Descriptor(
       create_key=_descriptor._internal_create_key,
     fields=[]),
   ],
-  serialized_start=69,
-  serialized_end=195,
+  serialized_start=102,
+  serialized_end=204,
 )
 
 
@@ -149,8 +149,8 @@ _CANDIDATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=197,
-  serialized_end=231,
+  serialized_start=206,
+  serialized_end=240,
 )
 
 
@@ -174,8 +174,8 @@ _SHUTDOWNREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=233,
-  serialized_end=250,
+  serialized_start=242,
+  serialized_end=259,
 )
 
 
@@ -199,8 +199,8 @@ _SHUTDOWNRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=252,
-  serialized_end=270,
+  serialized_start=261,
+  serialized_end=279,
 )
 
 _CANDIDATEREQUEST.fields_by_name['parameters'].message_type = _PARAMETER
@@ -213,9 +213,6 @@ _PARAMETER.fields_by_name['int64_value'].containing_oneof = _PARAMETER.oneofs_by
 _PARAMETER.oneofs_by_name['type'].fields.append(
   _PARAMETER.fields_by_name['float_value'])
 _PARAMETER.fields_by_name['float_value'].containing_oneof = _PARAMETER.oneofs_by_name['type']
-_PARAMETER.oneofs_by_name['type'].fields.append(
-  _PARAMETER.fields_by_name['string_value'])
-_PARAMETER.fields_by_name['string_value'].containing_oneof = _PARAMETER.oneofs_by_name['type']
 DESCRIPTOR.message_types_by_name['CandidateRequest'] = _CANDIDATEREQUEST
 DESCRIPTOR.message_types_by_name['Parameter'] = _PARAMETER
 DESCRIPTOR.message_types_by_name['CandidateResponse'] = _CANDIDATERESPONSE
@@ -267,8 +264,8 @@ _SAITEKI = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=272,
-  serialized_end=390,
+  serialized_start=281,
+  serialized_end=399,
   methods=[
   _descriptor.MethodDescriptor(
     name='ObjectiveFunction',

@@ -6,7 +6,8 @@ service Saiteki {
 }
 
 message CandidateRequest {
-    repeated Parameter parameters = 1;
+    string objective_function_json = 1;
+    repeated Parameter parameters = 2;
 }
 
 message Parameter {
@@ -15,7 +16,6 @@ message Parameter {
         int32 int32_value = 2;
         int64 int64_value = 3;
         float float_value = 4;
-        string string_value = 5;
     }
 }
 

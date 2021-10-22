@@ -1,5 +1,6 @@
 import logging
 import threading
+import asyncio
 import saiteki
 
 from .async_servicer import AsyncSaitekiServicer
