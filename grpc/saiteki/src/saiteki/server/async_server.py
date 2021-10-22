@@ -13,7 +13,7 @@ class AsyncServer(saiteki.core.AsyncGrpcServerBase):
     async def start(self):
         await super().start()
 
-        self._servicer = AsyncSaitekiServicer(self.shutdown)
+        self._servicer = AsyncSaitekiServicer()
         saiteki.protobuf.add_SaitekiServicer_to_server(
             self._servicer,
             self.server
