@@ -63,7 +63,7 @@ class Constraint:
         if op2 not in parameters:
             raise ValueError(f"Unable to apply constraint: parameter '{op2}' does not exist.")
         if type not in self.__class__.VALID_CONSTRAINT_OPS.keys():
-            raise ValueError(f"Invalid constraint operator '{type}'. Valid types: {self.__class__.VALID_CONSTRAINT_OP}")
+            raise ValueError(f"Invalid constraint operator '{type}'. Valid types: {list(self.__class__.VALID_CONSTRAINT_OPS.keys())}")
 
         self.operand1 = op1
         self.operand2 = op2
