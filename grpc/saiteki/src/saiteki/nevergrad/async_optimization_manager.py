@@ -44,6 +44,7 @@ class AsyncOptimizationManager(saiteki.client.AsyncOptimizationManagerBase):
             for n in range(budget):
                 candidate = optimizer.ask()
                 task = await self.submit_candidate(candidate.kwargs, context)
+                if task is None: break
                 task.add_done_callback(partial(candidate_done_callback, candidate))
 
         candidate = optimizer.provide_recommendation()

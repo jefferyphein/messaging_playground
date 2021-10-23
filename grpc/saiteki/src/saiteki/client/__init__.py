@@ -16,11 +16,13 @@ async def optimizer(parameters, *args, **kwargs):
 
     manager = saiteki.nevergrad.AsyncOptimizationManager(parameters, *args, **kwargs)
     candidate, score = await manager.optimize(*args, **kwargs)
+    print(candidate, score)
 
 @saiteki_cli.command('client')
 @click.option("--budget", type=int, required=True, help="Optimization budget (number of optimization attempts)")
 @click.option("--limit", type=int, required=False, help="Limits the number of simultaneous optimizations (<=0 indicates no limit, default: 0)", default=0)
 @click.option("--deadline", type=float, required=False, help="Deadline for each optimization request (<=0 indicates no deadline, default: 0)", default=0.0)
+@click.option("--threshold", type=float, required=False, help="Stop optimization once threshold is reached (<=0 indicates no threshold, default: 0)", default=0.0)
 @click.option("--optimizer", type=click.Choice(sorted(ng.optimizers.registry.keys())), required=True, help="Optimizer name", default="NGOpt")
 @click.option("--key", type=click.Path(exists=True), envvar="KEY", help="PEM private key")
 @click.option("--cert", type=click.Path(exists=True), envvar="CERT", help="PEM certificate chain")

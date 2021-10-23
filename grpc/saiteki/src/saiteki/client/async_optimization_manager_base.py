@@ -9,7 +9,7 @@ import saiteki.nevergrad
 LOGGER = logging.getLogger(__name__)
 
 class AsyncOptimizationManagerBase:
-    def __init__(self, parameters, hosts=list(), limit=0, deadline=0.0, key=None, cert=None, cacert=None, *args, **kwargs):
+    def __init__(self, parameters, hosts=list(), limit=0, deadline=0.0, threshold=0.0, key=None, cert=None, cacert=None, *args, **kwargs):
         client_key = open(key, "rb").read() if key else None
         client_cert = open(cert, "rb").read() if cert else None
         client_cacert = open(cacert, "rb").read() if cacert else None
@@ -28,6 +28,7 @@ class AsyncOptimizationManagerBase:
         self._semaphore = asyncio.Semaphore(limit) if limit > 0 else None
         self._limit = limit if limit > 0 else None
         self._deadline = deadline if deadline > 0.0 else None
+        self._threshold = threshold if threshold > 0.0 else None
 
         self._best_candidate = None
         self._best_score = float('inf')
@@ -51,6 +52,11 @@ class AsyncOptimizationManagerBase:
         # Block while resources are in use.
         if self._semaphore:
             await self._semaphore.acquire()
+
+        # Do not submit any further candidates since threshold has been met.
+        if self._threshold is not None:
+            if self._best_score <= self._threshold:
+                return None
 
         await context.update(1)
         task = asyncio.create_task(self._objective_function(candidate_dict))

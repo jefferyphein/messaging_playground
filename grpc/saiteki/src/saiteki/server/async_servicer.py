@@ -42,6 +42,7 @@ class AsyncSaitekiServicer(saiteki.protobuf.SaitekiServicer):
             parameter.name: getattr(parameter, parameter.WhichOneof('type'))
                 for parameter in request.parameters
         }
+        print(candidate_dict)
 
         try:
             # Score the candidate.
