@@ -46,7 +46,11 @@ class AsyncSaitekiServicer(saiteki.protobuf.SaitekiServicer):
 
         try:
             # Score the candidate.
-            return saiteki.protobuf.CandidateResponse(score=objective_function(candidate_dict))
+            return saiteki.protobuf.CandidateResponse(
+                score=objective_function(candidate_dict,
+                                         timeout=context.time_remaining(),
+                )
+            )
         except Exception as e:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details(f"Unexpected exception occurred while executing objective function: {str(e)}")
