@@ -57,15 +57,12 @@ class SaitekiServicer(saiteki.protobuf.SaitekiServicer):
             return saiteki.protobuf.CandidateResponse(score=float('inf'))
 
     def Shutdown(self, request, context):
-        if self.keep_alive:
-            # Do nothing if configured in keep-alive state.
-            ok = False
-        else:
-            # Schedule shutdown upon rpc context completion.
+        if not self.keep_alive:
+            # Schedule shutdown upon rpc context completion. This ensures that
+            # the client end receives a response before we issue a shutdown.
             def shutdown_cb():
                 signal.raise_signal(signal.SIGTERM)
             context.add_callback(shutdown_cb)
-            ok = True
 
         # Send shutdown response.
-        return saiteki.protobuf.ShutdownResponse(ok=ok)
+        return saiteki.protobuf.ShutdownResponse(ok=self.keep_alive)
