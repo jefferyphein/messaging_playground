@@ -12,6 +12,10 @@ class OptimizationContext:
 
     async def __aexit__(self, exc_t, exc_v, exc_tb):
         self._done = True
+        async with self.lock:
+            if self.value == 0:
+                self.event.set()
+
         await self.event.wait()
         return False
 

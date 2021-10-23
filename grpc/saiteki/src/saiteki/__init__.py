@@ -16,6 +16,9 @@ def saiteki_cli(ctx, loglevel):
     logger = logging.getLogger()
     logger.setLevel(LOGGING_LEVELS[loglevel])
 
+import saiteki.core as core
+import saiteki.nevergrad as nevergrad
+
 def _bootstrap(path):
     import pkgutil
     import importlib
