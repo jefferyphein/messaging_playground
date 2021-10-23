@@ -24,8 +24,8 @@ class AsyncOptimizationManagerBase:
             credentials = None
 
         self.parameters = parameters
-        self._servers = list(saiteki.client.RemoteHost(host, credentials) for host in hosts)
-        self._semaphore = asyncio.Semaphore(limit) if limit > 0 else None
+        self._remote_hosts = list(saiteki.client.RemoteHost(address, credentials) for address in hosts)
+        self._limit_semaphore = asyncio.Semaphore(limit) if limit > 0 else None
         self._limit = limit if limit > 0 else None
         self._deadline = deadline if deadline > 0.0 else None
         self._threshold = threshold if threshold > 0.0 else None
@@ -50,15 +50,15 @@ class AsyncOptimizationManagerBase:
 
     async def submit_candidate(self, candidate_dict, context):
         # Block while resources are in use.
-        if self._semaphore:
-            await self._semaphore.acquire()
+        if self._limit_semaphore:
+            await self._limit_semaphore.acquire()
 
         # Do not submit any further candidates since threshold has been met.
         if self._threshold is not None:
             if self._best_score <= self._threshold:
                 return None
 
-        await context.update(1)
+        await context.acquire()
         task = asyncio.create_task(self._objective_function(candidate_dict))
         task.add_done_callback(partial(self._objective_function_done, context, asyncio.get_event_loop()))
         return task
@@ -67,22 +67,23 @@ class AsyncOptimizationManagerBase:
         # Generate protobuf candidate request
         request = self.parameters.protobuf_request(candidate_dict)
 
-        # Randomly order the servers.
-        server_ids = list(range(len(self._servers)))
-        random.shuffle(server_ids)
+        # Randomly order the remote hosts.
+        remote_host_ids = list(range(len(self._remote_hosts)))
+        random.shuffle(remote_host_ids)
 
-        for server_id in server_ids:
-            server = self._servers[server_id]
+        for remote_host_id in remote_host_ids:
+            remote_host = self._remote_hosts[remote_host_id]
+
             try:
-                response = await server.objective_function(request, self._deadline)
+                response = await remote_host.objective_function(request, self._deadline)
                 return response.score
             except grpc.aio.AioRpcError as e:
                 if e.code() == grpc.StatusCode.RESOURCE_EXHAUSTED:
-                    LOGGER.debug("Remote host resource exhausted, trying next host (host: %s)", server.host)
+                    LOGGER.debug("Remote host resource exhausted, trying next remote host (address: %s)", remote_host.address)
                 elif e.code() == grpc.StatusCode.UNAVAILABLE:
-                    LOGGER.debug("Remote host unavailable, trying next host (host: %s)", server.host)
+                    LOGGER.debug("Remote host unavailable, trying next remote host (address: %s)", remote_host.address)
                 elif e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                    LOGGER.warn("RPC deadline exceeded (host: %s, deadline: %.2f)", server.host, self._deadline)
+                    LOGGER.warn("RPC deadline exceeded (address: %s, deadline: %.2f)", remote_host.address, self._deadline)
                     break
                 elif e.code() == grpc.StatusCode.INVALID_ARGUMENT:
                     LOGGER.warn("Invalid argument: %s", e.details())
@@ -91,13 +92,13 @@ class AsyncOptimizationManagerBase:
                 LOGGER.exception("Uncaught exception.")
                 raise
 
-        LOGGER.debug("Candidate ignored.")
+        LOGGER.debug("Unable to submit request to any remote host, ignoring candidate.")
         return float('inf')
 
     def _objective_function_done(self, context, loop, task):
         # Release the resource held by this call.
-        if self._semaphore:
-            self._semaphore.release()
+        if self._limit_semaphore:
+            self._limit_semaphore.release()
 
         # Make sure this is the last thing called.
-        asyncio.run_coroutine_threadsafe(context.update(-1), loop=loop)
+        asyncio.run_coroutine_threadsafe(context.release(), loop=loop)

@@ -15,6 +15,12 @@ class OptimizationContext:
         await self.event.wait()
         return False
 
+    async def release(self):
+        await self.update(-1)
+
+    async def acquire(self):
+        await self.update(1)
+
     async def update(self, step):
         async with self.lock:
             self.value += step
