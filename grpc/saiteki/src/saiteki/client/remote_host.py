@@ -16,10 +16,24 @@ class RemoteHost:
 
         self._stub = saiteki.protobuf.SaitekiStub(self._channel)
         self._address = address
+        self._shutdown = False
         LOGGER.info("Created channel to remote host (status: %s; address: %s)", security, self._address)
 
     async def objective_function(self, request, timeout):
         return await self._stub.ObjectiveFunction(request, timeout=timeout)
+
+    async def shutdown(self):
+        # Nothing to do if remote host is already shut down.
+        if self._shutdown:
+            return
+
+        # Issue shutdown request and return status.
+        response = await self._stub.Shutdown(
+            saiteki.protobuf.ShutdownRequest()
+        )
+        self._shutdown = response.ok
+        LOGGER.debug("Received shutdown response from remote host (address: %s, status: %s)", self._address, self._shutdown)
+        return self._shutdown
 
     def channel_state(self):
         return self._channel.get_state()

@@ -3,18 +3,19 @@ import threading
 import asyncio
 import saiteki
 
-from .async_servicer import AsyncSaitekiServicer
+from .async_servicer import SaitekiServicer
 
 LOGGER = logging.getLogger(__name__)
 
 class AsyncServer(saiteki.core.AsyncGrpcServerBase):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, keep_alive, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.keep_alive = keep_alive
 
     async def start(self):
         await super().start()
 
-        self._servicer = AsyncSaitekiServicer()
+        self._servicer = SaitekiServicer(self.keep_alive)
         saiteki.protobuf.add_SaitekiServicer_to_server(
             self._servicer,
             self.server

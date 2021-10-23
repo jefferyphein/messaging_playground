@@ -27,4 +27,5 @@ message ShutdownRequest {
 }
 
 message ShutdownResponse {
+    bool ok = 1;
 }

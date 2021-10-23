@@ -55,6 +55,9 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
         candidate, score = await manager.optimize(*args, **kwargs)
         print(candidate, score)
 
+    # Shutdown manager
+    await manager.shutdown()
+
     # Clean up all loose ends and stop the loop.
     tasks = list(task for task in asyncio.all_tasks() if task is not asyncio.current_task())
     LOGGER.debug("Server shutdown, cancelling %d outstanding task(s)...", len(tasks))
@@ -71,6 +74,7 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
 @click.option("--threshold", type=float, required=False, help="Stop optimization once threshold is reached (<=0 indicates no threshold, default: 0)", default=0.0)
 @click.option("--optimizer", type=click.Choice(sorted(ng.optimizers.registry.keys())), required=True, help="Optimizer name", default="NGOpt")
 @click.option("--evaluation", is_flag=True, help="Run in evaluation mode. Displays statistics upon completion.")
+@click.option("--shutdown-remote-hosts", is_flag=True, help="Shutdown remote hosts when optimization finishes.")
 @click.option("--key", type=click.Path(exists=True), envvar="KEY", help="PEM private key")
 @click.option("--cert", type=click.Path(exists=True), envvar="CERT", help="PEM certificate chain")
 @click.option("--cacert", type=click.Path(exists=True), envvar="CACERT", help="Root certificate")

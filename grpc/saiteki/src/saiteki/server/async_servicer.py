@@ -1,17 +1,17 @@
 import logging
 import grpc
 import json
-import asyncio
 import signal
 import threading
 import saiteki
 
 LOGGER = logging.getLogger(__name__)
 
-class AsyncSaitekiServicer(saiteki.protobuf.SaitekiServicer):
-    def __init__(self):
+class SaitekiServicer(saiteki.protobuf.SaitekiServicer):
+    def __init__(self, keep_alive=False):
         self.objective_functions = dict()
         self.lock = threading.Lock()
+        self.keep_alive = keep_alive
 
     def ObjectiveFunction(self, request, context):
         try:
@@ -56,6 +56,16 @@ class AsyncSaitekiServicer(saiteki.protobuf.SaitekiServicer):
             context.set_details(f"Unexpected exception occurred while executing objective function: {str(e)}")
             return saiteki.protobuf.CandidateResponse(score=float('inf'))
 
-    async def Shutdown(self, request, context):
-        signal.raise_signal(signal.SIGTERM)
-        return saiteki.protobuf.ShutdownResponse()
+    def Shutdown(self, request, context):
+        if self.keep_alive:
+            # Do nothing if configured in keep-alive state.
+            ok = False
+        else:
+            # Schedule shutdown upon rpc context completion.
+            def shutdown_cb():
+                signal.raise_signal(signal.SIGTERM)
+            context.add_callback(shutdown_cb)
+            ok = True
+
+        # Send shutdown response.
+        return saiteki.protobuf.ShutdownResponse(ok=ok)

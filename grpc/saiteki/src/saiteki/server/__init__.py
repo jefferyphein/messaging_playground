@@ -7,6 +7,7 @@ from .. import saiteki_cli
 
 @saiteki_cli.command('server')
 @click.option("-n", "--num-workers", type=int, required=True, help="Number of workers")
+@click.option("--keep-alive", is_flag=True, help="Keep server alive, even if remote shutdown requests are received.")
 @click.option("--key", type=click.Path(exists=True), envvar="KEY", help="PEM private key")
 @click.option("--cert", type=click.Path(exists=True), envvar="CERT", help="PEM certificate chain")
 @click.option("--cacert", type=click.Path(exists=True), envvar="CACERT", help="Root certificate")

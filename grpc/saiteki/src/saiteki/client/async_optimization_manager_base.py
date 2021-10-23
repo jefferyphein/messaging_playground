@@ -9,7 +9,7 @@ import saiteki.nevergrad
 LOGGER = logging.getLogger(__name__)
 
 class AsyncOptimizationManagerBase:
-    def __init__(self, parameters, hosts=list(), limit=0, deadline=0.0, threshold=0.0, key=None, cert=None, cacert=None, *args, **kwargs):
+    def __init__(self, parameters, hosts=list(), shutdown_remote_hosts=False, limit=0, deadline=0.0, threshold=0.0, key=None, cert=None, cacert=None, *args, **kwargs):
         client_key = open(key, "rb").read() if key else None
         client_cert = open(cert, "rb").read() if cert else None
         client_cacert = open(cacert, "rb").read() if cacert else None
@@ -30,6 +30,7 @@ class AsyncOptimizationManagerBase:
         self._deadline = deadline if deadline > 0.0 else None
         self._threshold = threshold if threshold > 0.0 else None
         self._shutdown = asyncio.Event()
+        self._shutdown_remote_hosts = shutdown_remote_hosts
 
         self._best_candidate = None
         self._best_score = float('inf')
@@ -69,8 +70,20 @@ class AsyncOptimizationManagerBase:
         return task
 
     async def shutdown(self):
-        LOGGER.critical("Shutting down optimization manager...")
-        self._shutdown.set()
+        if not self._shutdown.is_set():
+            LOGGER.critical("Shutting down optimization manager...")
+            self._shutdown.set()
+
+        if self._shutdown_remote_hosts:
+            tasks = list(asyncio.create_task(remote_host.shutdown()) for remote_host in self._remote_hosts)
+            try:
+                await asyncio.gather(*tasks)
+            except grpc.aio.AioRpcError as e:
+                if e.code() == grpc.StatusCode.UNAVAILABLE:
+                    LOGGER.debug("Unable to issue shutdown to remote host due to it being unavailable. Oh well.")
+            except Exception as e:
+                LOGGER.exception("Uncaught exception.")
+                raise
 
     async def _objective_function(self, candidate_dict):
         # Generate protobuf candidate request
