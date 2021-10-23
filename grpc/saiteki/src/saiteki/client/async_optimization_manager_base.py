@@ -26,7 +26,7 @@ class AsyncOptimizationManagerBase:
         self.parameters = parameters
         self._servers = list(saiteki.client.RemoteHost(host, credentials) for host in hosts)
         self._semaphore = asyncio.Semaphore(limit) if limit > 0 else None
-        self._limit = limit
+        self._limit = limit if limit > 0 else None
         self._deadline = deadline if deadline > 0.0 else None
 
         self._best_candidate = None
@@ -43,6 +43,9 @@ class AsyncOptimizationManagerBase:
             self.parameters.update_start_candidate(candidate_dict)
 
             LOGGER.info("Updated score: %f", score)
+            return True
+
+        return False
 
     async def submit_candidate(self, candidate_dict, context):
         # Block while resources are in use.
@@ -74,6 +77,9 @@ class AsyncOptimizationManagerBase:
                     LOGGER.debug("Remote host unavailable, trying next host (host: %s)", server.host)
                 elif e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                     LOGGER.warn("RPC deadline exceeded (host: %s, deadline: %.2f)", server.host, self._deadline)
+                    break
+                elif e.code() == grpc.StatusCode.INVALID_ARGUMENT:
+                    LOGGER.warn("Invalid argument: %s", e.details())
                     break
             except Exception as e:
                 LOGGER.exception("Uncaught exception.")

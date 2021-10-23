@@ -15,7 +15,7 @@ async def optimizer(parameters, *args, **kwargs):
     parameters = saiteki.core.Parameters(**data)
 
     manager = saiteki.nevergrad.AsyncOptimizationManager(parameters, *args, **kwargs)
-    await manager.optimize(*args, **kwargs)
+    candidate, score = await manager.optimize(*args, **kwargs)
 
 @saiteki_cli.command('client')
 @click.option("--budget", type=int, required=True, help="Optimization budget (number of optimization attempts)")

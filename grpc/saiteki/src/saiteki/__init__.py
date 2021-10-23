@@ -7,15 +7,14 @@ LOGGING_LEVELS = dict(
     warning=logging.WARNING,
     error=logging.ERROR,
     critical=logging.CRITICAL,
-    notset=logging.NOTSET
 )
 
 @click.group()
 @click.option("--loglevel", type=click.Choice(LOGGING_LEVELS.keys()), default='info', help="Logging level")
 @click.pass_context
 def saiteki_cli(ctx, loglevel):
-    if loglevel != "notset":
-        logging.basicConfig(level=LOGGING_LEVELS[loglevel])
+    logger = logging.getLogger()
+    logger.setLevel(LOGGING_LEVELS[loglevel])
 
 def _bootstrap(path):
     import pkgutil

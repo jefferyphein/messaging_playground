@@ -69,13 +69,11 @@ class Constraint:
         self.operand2 = op2
         self.op = self.__class__.VALID_CONSTRAINT_OPS[type]
 
-    def __call__(self, parameters):
-        value1 = parameters[self.operand1]['start']
-        value2 = parameters[self.operand2]['start']
-        return self.op(value1, value2)
+    def __call__(self, dictionary):
+        return self.op(dictionary[self.operand1], dictionary[self.operand2])
 
 class Parameters(collections.abc.Mapping):
-    def __init__(self, parameters, objective_function, constraints, *args, **kwargs):
+    def __init__(self, parameters, objective_function, constraints=list(), *args, **kwargs):
         super().__init__()
         self.ordered_parameters = list(Parameter(**param) for param in parameters)
         self.parameters = { param['name']: param for param in self.ordered_parameters }
@@ -94,7 +92,7 @@ class Parameters(collections.abc.Mapping):
                 parameter.float_value = dictionary[key]
             parameters.append(parameter)
         return saiteki.protobuf.CandidateRequest(
-            objective_function_json=json.dumps(self.objective_function),
+            objective_function_json=json.dumps(self.objective_function, sort_keys=True),
             parameters=parameters,
         )
 
