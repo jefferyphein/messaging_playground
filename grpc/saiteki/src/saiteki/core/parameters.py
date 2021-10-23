@@ -50,9 +50,9 @@ class Parameter(collections.abc.Mapping):
 
 class Constraint:
     VALID_CONSTRAINT_OPS = dict(
-        lt  = (lambda x,y: x<y),
+        lt  = (lambda x,y: x< y),
         lte = (lambda x,y: x<=y),
-        gt  = (lambda x,y: x>y),
+        gt  = (lambda x,y: x> y),
         gte = (lambda x,y: x>=y),
         ne  = (lambda x,y: x!=y),
     )
@@ -62,15 +62,21 @@ class Constraint:
             raise ValueError(f"Unable to apply constraint: parameter '{op1}' does not exist.")
         if op2 not in parameters:
             raise ValueError(f"Unable to apply constraint: parameter '{op2}' does not exist.")
+        if op1 == op2:
+            raise ValueError(f"Unable to apply constraint: operands must differ, '{op1}'")
         if type not in self.__class__.VALID_CONSTRAINT_OPS.keys():
             raise ValueError(f"Invalid constraint operator '{type}'. Valid types: {list(self.__class__.VALID_CONSTRAINT_OPS.keys())}")
 
         self.operand1 = op1
         self.operand2 = op2
-        self.op = self.__class__.VALID_CONSTRAINT_OPS[type]
+        self.operator = self.__class__.VALID_CONSTRAINT_OPS[type]
+        self.type_ = type
 
     def __call__(self, dictionary):
-        return self.op(dictionary[self.operand1], dictionary[self.operand2])
+        return self.operator(dictionary[self.operand1], dictionary[self.operand2])
+
+    def __str__(self):
+        return f"{{ op1: {self.operand1}, type: {self.type_}, op2: {self.operand2} }}"
 
 class Parameters(collections.abc.Mapping):
     def __init__(self, parameters, objective_function, constraints=list(), *args, **kwargs):
@@ -124,9 +130,22 @@ class Parameters(collections.abc.Mapping):
     def values(self):
         return self.parameters.values()
 
+    def _str_objective_function(self):
+        return f"objective_function: {self.objective_function}"
+
+    def _str_parameters(self):
+        return """parameters:
+{parameters}""".format(parameters="\n".join("- "+str(param) for param in self.ordered_parameters))
+
+    def _str_constraints(self):
+        if len(self.constraints) > 0:
+            return """constraints:
+{constraints}""".format(constraints="\n".join("- "+str(constraint) for constraint in self.constraints))
+        else:
+            return ""
+
     def __str__(self):
-        return """---
-objective_function: {objective}
-parameters:
-{parameters}""".format(objective=self.objective_function,
-                       parameters="\n".join("- "+str(param) for param in self.ordered_parameters))
+        return f"""---
+{self._str_objective_function()}
+{self._str_parameters()}
+{self._str_constraints()}"""
