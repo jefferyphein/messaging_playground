@@ -3,24 +3,46 @@ import grpc
 import yaml
 import asyncio
 import nevergrad as ng
-import saiteki
+import signal
+import logging
+from functools import partial
 
+import saiteki
 from .. import saiteki_cli
 from .async_optimization_manager_base import AsyncOptimizationManagerBase
 from .async_evaluation_manager import AsyncEvaluationManager
 from .remote_host import RemoteHost
 
-async def optimizer(parameters, evaluation, *args, **kwargs):
-    data = yaml.safe_load(parameters.read())
-    parameters.close()
-    parameters = saiteki.core.Parameters(**data)
+LOGGER = logging.getLogger(__name__)
 
-    if not evaluation:
-        manager = saiteki.nevergrad.AsyncOptimizationManager(parameters, *args, **kwargs)
-        candidate, score = await manager.optimize(*args, **kwargs)
-        print(candidate, score)
-    else:
+async def _shutdown(loop, manager, signal=None):
+    LOGGER.critical("Shutdown signal received (%s), waiting for server shutdown...", signal)
+    await manager.shutdown()
+
+def _handle_exception(manager, loop, context):
+    msg = context.get("exception", context["message"])
+    LOGGER.exception("An uncaught exception was detected")
+    asyncio.create_task(_shutdown(loop, manager))
+
+async def optimizer(parameters, evaluation, *args, **kwargs):
+    loop = asyncio.get_event_loop()
+
+    # Set up the manager.
+    if evaluation:
         manager = AsyncEvaluationManager(parameters, *args, **kwargs)
+    else:
+        manager = saiteki.nevergrad.AsyncOptimizationManager(parameters, *args, **kwargs)
+
+    # Add signal handlers and exception handler to main event loop.
+    signals = [ signal.SIGTERM, signal.SIGINT, signal.SIGHUP ]
+    for s in signals:
+        loop.add_signal_handler(
+            s, lambda s=s: asyncio.create_task(_shutdown(loop, manager, signal=s))
+        )
+    loop.set_exception_handler(partial(_handle_exception, manager))
+
+    # Run the optimizer.
+    if evaluation:
         scores = await manager.optimize(*args, **kwargs)
 
         import statistics
@@ -29,6 +51,18 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
         print("min", min(scores))
         print("max", max(scores))
         print("stdev", statistics.stdev(scores))
+    else:
+        candidate, score = await manager.optimize(*args, **kwargs)
+        print(candidate, score)
+
+    # Clean up all loose ends and stop the loop.
+    tasks = list(task for task in asyncio.all_tasks() if task is not asyncio.current_task())
+    LOGGER.debug("Server shutdown, cancelling %d outstanding task(s)...", len(tasks))
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    LOGGER.debug("All tasks cancelled. Goodbye.")
+    loop.stop()
 
 @saiteki_cli.command('client')
 @click.option("--budget", type=int, required=True, help="Optimization budget (number of optimization attempts)")
@@ -43,7 +77,11 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
 @click.argument("parameters", type=click.File())
 @click.argument("hosts", nargs=-1)
 @click.pass_context
-def client_cli(ctx, *args, **kwargs):
+def client_cli(ctx, parameters, *args, **kwargs):
     """Starts an optimization client."""
 
-    exit(asyncio.run(optimizer(*args, **kwargs)))
+    data = yaml.safe_load(parameters.read())
+    parameters.close()
+    parameters = saiteki.core.Parameters(**data)
+
+    exit(asyncio.run(optimizer(parameters, *args, **kwargs)))

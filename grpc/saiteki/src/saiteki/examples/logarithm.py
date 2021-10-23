@@ -7,5 +7,5 @@ class LogarithmObjective:
 
         self.base = base
 
-    def __call__(self, candidate):
+    def __call__(self, candidate, *args, **kwargs):
         return abs(math.log(1+sum(value**2 for value in candidate.values())) / math.log(self.base))

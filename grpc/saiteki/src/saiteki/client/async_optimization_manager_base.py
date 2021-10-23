@@ -29,6 +29,7 @@ class AsyncOptimizationManagerBase:
         self._limit = limit if limit > 0 else None
         self._deadline = deadline if deadline > 0.0 else None
         self._threshold = threshold if threshold > 0.0 else None
+        self._shutdown = asyncio.Event()
 
         self._best_candidate = None
         self._best_score = float('inf')
@@ -53,6 +54,10 @@ class AsyncOptimizationManagerBase:
         if self._limit_semaphore:
             await self._limit_semaphore.acquire()
 
+        # Do not allow further submissions once manager has been shut down.
+        if self._shutdown.is_set():
+            return None
+
         # Do not submit any further candidates since threshold has been met.
         if self._threshold is not None:
             if self._best_score <= self._threshold:
@@ -62,6 +67,10 @@ class AsyncOptimizationManagerBase:
         task = asyncio.create_task(self._objective_function(candidate_dict))
         task.add_done_callback(partial(self._objective_function_done, context, asyncio.get_event_loop()))
         return task
+
+    async def shutdown(self):
+        LOGGER.critical("Shutting down optimization manager...")
+        self._shutdown.set()
 
     async def _objective_function(self, candidate_dict):
         # Generate protobuf candidate request

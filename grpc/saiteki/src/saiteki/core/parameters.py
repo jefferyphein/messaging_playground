@@ -11,7 +11,7 @@ class Parameter(collections.abc.Mapping):
 
         # Ensure input type is valid.
         if type not in self.__class__.VALID_TYPES:
-            raise ValueError("Unexpected parameter type: %s" % type)
+            raise ValueError(f"Unexpected parameter type: {type}")
 
         # Verify lower <= upper for all numeric types.
         if type in self.__class__.NUMERIC_TYPES:

@@ -48,7 +48,7 @@ class AsyncSaitekiServicer(saiteki.protobuf.SaitekiServicer):
             # Score the candidate.
             return saiteki.protobuf.CandidateResponse(
                 score=objective_function(candidate_dict,
-                                         timeout=context.time_remaining(),
+                                         timeout=context.time_remaining()
                 )
             )
         except Exception as e:

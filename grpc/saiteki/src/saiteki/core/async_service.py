@@ -16,7 +16,6 @@ def _handle_exception(aio_server, loop, context):
     asyncio.create_task(_shutdown(loop, aio_server))
 
 async def launch_service(cls, *args, **kwargs):
-    #aio_server = saiteki.server.AsyncServer(*args, **kwargs)
     aio_server = cls(*args, **kwargs)
     loop = asyncio.get_event_loop()
 
