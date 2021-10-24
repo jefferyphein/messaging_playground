@@ -8,43 +8,43 @@ from functools import partial
 
 import saiteki
 from .. import saiteki_cli
-from .async_optimization_manager_base import AsyncOptimizationManagerBase  # noqa: F401
-from .async_evaluation_manager import AsyncEvaluationManager
+from .async_optimization_client_base import AsyncOptimizationClientBase  # noqa: F401
+from .async_evaluation_client import AsyncEvaluationClient
 from .remote_host import RemoteHost  # noqa: F401
 
 LOGGER = logging.getLogger(__name__)
 
 
-async def _shutdown(loop, manager, signal=None):
+async def _shutdown(loop, client, signal=None):
     LOGGER.critical("Shutdown signal received (%s), waiting for server shutdown...", signal)
-    await manager.shutdown()
+    await client.shutdown()
 
 
-def _handle_exception(manager, loop, context):
+def _handle_exception(client, loop, context):
     LOGGER.exception("An uncaught exception was detected")
-    asyncio.create_task(_shutdown(loop, manager))
+    asyncio.create_task(_shutdown(loop, client))
 
 
 async def optimizer(parameters, evaluation, *args, **kwargs):
     loop = asyncio.get_event_loop()
 
-    # Set up the manager.
+    # Set up the client.
     if evaluation:
-        manager = AsyncEvaluationManager(parameters, *args, **kwargs)
+        client = AsyncEvaluationClient(parameters, *args, **kwargs)
     else:
-        manager = saiteki.nevergrad.AsyncOptimizationManager(parameters, *args, **kwargs)
+        client = saiteki.nevergrad.AsyncOptimizationClient(parameters, *args, **kwargs)
 
     # Add signal handlers and exception handler to main event loop.
     signals = [signal.SIGTERM, signal.SIGINT, signal.SIGHUP]
     for s in signals:
         loop.add_signal_handler(
-            s, lambda s=s: asyncio.create_task(_shutdown(loop, manager, signal=s))
+            s, lambda s=s: asyncio.create_task(_shutdown(loop, client, signal=s))
         )
-    loop.set_exception_handler(partial(_handle_exception, manager))
+    loop.set_exception_handler(partial(_handle_exception, client))
 
     # Run the optimizer.
     if evaluation:
-        scores = await manager.optimize(*args, **kwargs)
+        scores = await client.optimize(*args, **kwargs)
 
         import statistics
         print("samples", len(scores))
@@ -53,11 +53,11 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
         print("max", max(scores))
         print("stdev", statistics.stdev(scores))
     else:
-        candidate, score = await manager.optimize(*args, **kwargs)
+        candidate, score = await client.optimize(*args, **kwargs)
         print(candidate, score)
 
-    # Shutdown manager
-    await manager.shutdown()
+    # Shutdown client.
+    await client.shutdown()
 
     # Clean up all loose ends and stop the loop.
     tasks = list(task for task in asyncio.all_tasks() if task is not asyncio.current_task())

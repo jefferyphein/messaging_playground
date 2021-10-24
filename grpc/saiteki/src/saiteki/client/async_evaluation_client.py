@@ -1,8 +1,9 @@
+import statistics
 import saiteki.core
-from .async_optimization_manager_base import AsyncOptimizationManagerBase
+from .async_optimization_client_base import AsyncOptimizationClientBase
 
 
-class AsyncEvaluationManager(AsyncOptimizationManagerBase):
+class AsyncEvaluationClient(AsyncOptimizationClientBase):
     async def optimize(self, budget, *args, **kwargs):
         candidate_dict = self.parameters.candidate_dict()
         scores = list()
@@ -22,3 +23,11 @@ class AsyncEvaluationManager(AsyncOptimizationManagerBase):
                 task.add_done_callback(candidate_done_callback)
 
         return scores
+
+    async def run(self, *args, **kwargs):
+        scores = await self.optimize(*args, **kwargs)
+        print("samples", len(scores))
+        print("mean", statistics.mean(scores))
+        print("min", min(scores))
+        print("max", max(scores))
+        print("stdev", statistics.stdev(scores))

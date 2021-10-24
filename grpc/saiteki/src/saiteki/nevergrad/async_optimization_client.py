@@ -1,10 +1,10 @@
 import nevergrad as ng
 from functools import partial
-from ..client import AsyncOptimizationManagerBase
+from ..client import AsyncOptimizationClientBase
 import saiteki
 
 
-class AsyncOptimizationManager(AsyncOptimizationManagerBase):
+class AsyncOptimizationClient(AsyncOptimizationClientBase):
     async def optimize(self, budget, optimizer, *args, **kwargs):
         # Build nevergrad parameters from the saiteki parameters.
         ng_parameters = saiteki.nevergrad.Parameters(self.parameters)
@@ -52,3 +52,7 @@ class AsyncOptimizationManager(AsyncOptimizationManagerBase):
 
         candidate = optimizer.provide_recommendation()
         return candidate.kwargs, candidate.loss
+
+    async def run(self, *args, **kwargs):
+        candidate, score = await self.optimize(*args, **kwargs)
+        print(candidate, score)

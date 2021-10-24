@@ -7,7 +7,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class AsyncServer(saiteki.core.AsyncGrpcServerBase):
-    def __init__(self, keep_alive, *args, **kwargs):
+    def __init__(self, keep_alive=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.keep_alive = keep_alive
 

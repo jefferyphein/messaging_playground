@@ -9,10 +9,11 @@ import saiteki.nevergrad
 LOGGER = logging.getLogger(__name__)
 
 
-class AsyncOptimizationManagerBase:
-    def __init__(self, parameters, hosts=list(), shutdown_remote_hosts=False,
+class AsyncOptimizationClientBase:
+    def __init__(self, parameters, remote_hosts=list(), shutdown_remote_hosts=False,
                  limit=0, deadline=0.0, threshold=0.0,
                  key=None, cert=None, cacert=None, *args, **kwargs):
+        print(remote_hosts)
         client_key = open(key, "rb").read() if key else None
         client_cert = open(cert, "rb").read() if cert else None
         client_cacert = open(cacert, "rb").read() if cacert else None
@@ -27,7 +28,7 @@ class AsyncOptimizationManagerBase:
             credentials = None
 
         self.parameters = parameters
-        self._remote_hosts = list(saiteki.client.RemoteHost(address, credentials) for address in hosts)
+        self._remote_hosts = list(saiteki.client.RemoteHost(address, credentials) for address in remote_hosts)
         self._limit_semaphore = asyncio.Semaphore(limit) if limit > 0 else None
         self._limit = limit if limit > 0 else None
         self._deadline = deadline if deadline > 0.0 else None
@@ -40,6 +41,10 @@ class AsyncOptimizationManagerBase:
 
     @abc.abstractmethod
     async def optimize(self, *args, **kwargs):
+        pass
+
+    @abc.abstractmethod
+    async def run(self, *args, **kwargs):
         pass
 
     def update_best_candidate(self, candidate_dict, score):
@@ -58,7 +63,7 @@ class AsyncOptimizationManagerBase:
         if self._limit_semaphore:
             await self._limit_semaphore.acquire()
 
-        # Do not allow further submissions once manager has been shut down.
+        # Do not allow further submissions once client has been shut down.
         if self._shutdown.is_set():
             return None
 
@@ -74,7 +79,7 @@ class AsyncOptimizationManagerBase:
 
     async def shutdown(self):
         if not self._shutdown.is_set():
-            LOGGER.critical("Shutting down optimization manager...")
+            LOGGER.critical("Shutting down optimization client...")
             self._shutdown.set()
 
         if self._shutdown_remote_hosts:
