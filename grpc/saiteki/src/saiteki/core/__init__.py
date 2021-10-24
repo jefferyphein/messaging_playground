@@ -1,8 +1,9 @@
-from .grpc_server import GrpcServerBase
-from .async_grpc_server import AsyncGrpcServerBase
-from .async_service import launch_service
-from .parameters import Parameter, Parameters, Constraint
-from .optimization_context import OptimizationContext
+from .grpc_server import GrpcServerBase  # noqa: F401
+from .async_grpc_server import AsyncGrpcServerBase  # noqa: F401
+from .async_service import launch_service  # noqa: F401
+from .parameters import Parameter, Parameters, Constraint  # noqa: F401
+from .optimization_context import OptimizationContext  # noqa: F401
+
 
 def func_name(func):
     if isinstance(func, dict):
@@ -11,6 +12,7 @@ def func_name(func):
         return func
     else:
         raise ValueError(f"Unexpected function type {type(func)}. Expected 'dict' or 'str'.")
+
 
 def load_func(func):
     if isinstance(func, dict):

@@ -1,10 +1,11 @@
 import logging
 import grpc
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor  # noqa: F401
 
 from .grpc_server import GrpcServerBase
 
 LOGGER = logging.getLogger(__name__)
+
 
 class AsyncGrpcServerBase(GrpcServerBase):
     def __init__(self, num_workers, *args, **kwargs):
@@ -22,7 +23,10 @@ class AsyncGrpcServerBase(GrpcServerBase):
             self.server.add_insecure_port(self.bind_addr)
             status = "uds" if self.uds else "insecure"
 
-        LOGGER.info("Server configured (status: %s; num_workers: %d, bind_addr: %s)", status, num_workers, self.bind_addr)
+        LOGGER.info(
+            "Server configured (status: %s; num_workers: %d, bind_addr: %s)",
+            status, num_workers, self.bind_addr
+        )
 
     async def start(self):
         await self.server.start()

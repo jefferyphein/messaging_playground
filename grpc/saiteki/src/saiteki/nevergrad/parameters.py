@@ -1,6 +1,6 @@
 import collections
 import nevergrad as ng
-import saiteki.core
+
 
 class Parameters(collections.abc.Mapping):
     def __init__(self, base_parameters):

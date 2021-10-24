@@ -1,9 +1,9 @@
 import grpc
-import asyncio
 import logging
 import saiteki
 
 LOGGER = logging.getLogger(__name__)
+
 
 class RemoteHost:
     def __init__(self, address, credentials=None):
@@ -17,7 +17,10 @@ class RemoteHost:
         self._stub = saiteki.protobuf.SaitekiStub(self._channel)
         self._address = address
         self._shutdown = False
-        LOGGER.info("Created channel to remote host (status: %s; address: %s)", security, self._address)
+        LOGGER.info(
+            "Created channel to remote host (status: %s; address: %s)",
+            security, self._address
+        )
 
     async def objective_function(self, request, timeout):
         return await self._stub.ObjectiveFunction(request, timeout=timeout)
@@ -32,7 +35,10 @@ class RemoteHost:
             saiteki.protobuf.ShutdownRequest()
         )
         self._shutdown = response.ok
-        LOGGER.debug("Received shutdown response from remote host (address: %s, status: %s)", self._address, self._shutdown)
+        LOGGER.debug(
+            "Received shutdown response from remote host (address: %s, status: %s)",
+            self._address, self._shutdown
+        )
         return self._shutdown
 
     def channel_state(self):

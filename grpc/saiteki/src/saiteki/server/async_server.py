@@ -1,11 +1,10 @@
 import logging
-import threading
-import asyncio
 import saiteki
 
 from .async_servicer import SaitekiServicer
 
 LOGGER = logging.getLogger(__name__)
+
 
 class AsyncServer(saiteki.core.AsyncGrpcServerBase):
     def __init__(self, keep_alive, *args, **kwargs):

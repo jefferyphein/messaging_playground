@@ -1,6 +1,7 @@
 import saiteki.core
 from .async_optimization_manager_base import AsyncOptimizationManagerBase
 
+
 class AsyncEvaluationManager(AsyncOptimizationManagerBase):
     async def optimize(self, budget, *args, **kwargs):
         candidate_dict = self.parameters.candidate_dict()
@@ -16,7 +17,8 @@ class AsyncEvaluationManager(AsyncOptimizationManagerBase):
         async with saiteki.core.OptimizationContext() as context:
             for n in range(budget):
                 task = await self.submit_candidate(candidate_dict, context)
-                if task is None: break
+                if task is None:
+                    break
                 task.add_done_callback(candidate_done_callback)
 
         return scores

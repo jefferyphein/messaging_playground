@@ -2,8 +2,9 @@ import collections
 import json
 import saiteki
 
+
 class Parameter(collections.abc.Mapping):
-    NUMERIC_TYPES = [ "INT", "INT64", "FLOAT" ]
+    NUMERIC_TYPES = ["INT", "INT64", "FLOAT"]
     VALID_TYPES = NUMERIC_TYPES
 
     def __init__(self, name, type, lower, upper, start, *args, **kwargs):
@@ -16,11 +17,15 @@ class Parameter(collections.abc.Mapping):
         # Verify lower <= upper for all numeric types.
         if type in self.__class__.NUMERIC_TYPES:
             if upper < lower:
-                raise ValueError(f"Invalid boundary for parameter '{name}': upper bound {upper} must be >= lower bound {lower}")
+                raise ValueError(
+                    f"Invalid boundary for parameter '{name}': upper bound {upper} must be >= lower bound {lower}"
+                )
 
         # Ensure start point is within bounds.
         if start < lower or start > upper:
-            raise ValueError(f"Start value for parameter '{name}' must be in range [{lower},{upper}]; current value: {start}")
+            raise ValueError(
+                f"Start value for parameter '{name}' must be in range [{lower},{upper}]; current value: {start}"
+            )
 
         self.dictionary = collections.OrderedDict(
             name=name,
@@ -46,15 +51,16 @@ class Parameter(collections.abc.Mapping):
         return hash(self['name'])
 
     def __str__(self):
-        return ("{{"+", ".join("%s: {%s}" % (key,key) for key in self.dictionary.keys())+"}}").format(**self)
+        return ("{{"+", ".join("%s: {%s}" % (key, key) for key in self.dictionary.keys())+"}}").format(**self)
+
 
 class Constraint:
     VALID_CONSTRAINT_OPS = dict(
-        lt  = (lambda x,y: x< y),
-        lte = (lambda x,y: x<=y),
-        gt  = (lambda x,y: x> y),
-        gte = (lambda x,y: x>=y),
-        ne  = (lambda x,y: x!=y),
+        lt=lambda x, y: x < y,
+        lte=lambda x, y: x <= y,
+        gt=lambda x, y: x > y,
+        gte=lambda x, y: x >= y,
+        ne=lambda x, y: x != y,
     )
 
     def __init__(self, parameters, type, op1, op2):
@@ -65,7 +71,10 @@ class Constraint:
         if op1 == op2:
             raise ValueError(f"Unable to apply constraint: operands must differ, '{op1}'")
         if type not in self.__class__.VALID_CONSTRAINT_OPS.keys():
-            raise ValueError(f"Invalid constraint operator '{type}'. Valid types: {list(self.__class__.VALID_CONSTRAINT_OPS.keys())}")
+            raise ValueError(
+                f"Invalid constraint operator '{type}'. Valid types: "
+                f"{list(self.__class__.VALID_CONSTRAINT_OPS.keys())}"
+            )
 
         self.operand1 = op1
         self.operand2 = op2
@@ -78,17 +87,18 @@ class Constraint:
     def __str__(self):
         return f"{{ op1: {self.operand1}, type: {self.type_}, op2: {self.operand2} }}"
 
+
 class Parameters(collections.abc.Mapping):
     def __init__(self, parameters, objective_function, constraints=list(), *args, **kwargs):
         super().__init__()
         self.ordered_parameters = list(Parameter(**param) for param in parameters)
-        self.parameters = { param['name']: param for param in self.ordered_parameters }
+        self.parameters = {param['name']: param for param in self.ordered_parameters}
         self.objective_function = objective_function
         self.constraints = list(Constraint(self.parameters, **constraint) for constraint in constraints)
 
     def protobuf_request(self, dictionary):
         parameters = list()
-        for key,item in self.parameters.items():
+        for key, item in self.parameters.items():
             parameter = saiteki.protobuf.Parameter(name=key)
             if self.parameters[key]['type'] == "INT":
                 parameter.int32_value = dictionary[key]
@@ -107,13 +117,13 @@ class Parameters(collections.abc.Mapping):
             self.parameters[key]['start'] = candidate_dict[key]
 
     def candidate_dict(self):
-        return { name: param['start'] for name,param in self.parameters.items() }
+        return {name: param['start'] for name, param in self.parameters.items()}
 
     def __getitem__(self, key):
         return self[key]
 
     def __iter__(self):
-        return iter(__dict__)
+        return iter(self.__dict__)
 
     def __len__(self):
         return len(self)

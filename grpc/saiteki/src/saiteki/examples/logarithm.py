@@ -1,5 +1,6 @@
 import math
 
+
 class LogarithmObjective:
     def __init__(self, base=math.exp(1)):
         if base <= 0.0:

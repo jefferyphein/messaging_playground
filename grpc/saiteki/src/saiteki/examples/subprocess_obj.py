@@ -1,5 +1,6 @@
 import subprocess
 
+
 class SubprocessObjective:
     def __init__(self, cmd):
         self.cmd = cmd

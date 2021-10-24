@@ -1,5 +1,4 @@
 import click
-import grpc
 import yaml
 import asyncio
 import nevergrad as ng
@@ -9,20 +8,22 @@ from functools import partial
 
 import saiteki
 from .. import saiteki_cli
-from .async_optimization_manager_base import AsyncOptimizationManagerBase
+from .async_optimization_manager_base import AsyncOptimizationManagerBase  # noqa: F401
 from .async_evaluation_manager import AsyncEvaluationManager
-from .remote_host import RemoteHost
+from .remote_host import RemoteHost  # noqa: F401
 
 LOGGER = logging.getLogger(__name__)
+
 
 async def _shutdown(loop, manager, signal=None):
     LOGGER.critical("Shutdown signal received (%s), waiting for server shutdown...", signal)
     await manager.shutdown()
 
+
 def _handle_exception(manager, loop, context):
-    msg = context.get("exception", context["message"])
     LOGGER.exception("An uncaught exception was detected")
     asyncio.create_task(_shutdown(loop, manager))
+
 
 async def optimizer(parameters, evaluation, *args, **kwargs):
     loop = asyncio.get_event_loop()
@@ -34,7 +35,7 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
         manager = saiteki.nevergrad.AsyncOptimizationManager(parameters, *args, **kwargs)
 
     # Add signal handlers and exception handler to main event loop.
-    signals = [ signal.SIGTERM, signal.SIGINT, signal.SIGHUP ]
+    signals = [signal.SIGTERM, signal.SIGINT, signal.SIGHUP]
     for s in signals:
         loop.add_signal_handler(
             s, lambda s=s: asyncio.create_task(_shutdown(loop, manager, signal=s))
@@ -67,17 +68,28 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
     LOGGER.debug("All tasks cancelled. Goodbye.")
     loop.stop()
 
+
 @saiteki_cli.command('client')
-@click.option("--budget", type=int, required=True, help="Optimization budget (number of optimization attempts)")
-@click.option("--limit", type=int, required=False, help="Limits the number of simultaneous optimizations (<=0 indicates no limit, default: 0)", default=0)
-@click.option("--deadline", type=float, required=False, help="Deadline for each optimization request (<=0 indicates no deadline, default: 0)", default=0.0)
-@click.option("--threshold", type=float, required=False, help="Stop optimization once threshold is reached (<=0 indicates no threshold, default: 0)", default=0.0)
-@click.option("--optimizer", type=click.Choice(sorted(ng.optimizers.registry.keys())), required=True, help="Optimizer name", default="NGOpt")
-@click.option("--evaluation", is_flag=True, help="Run in evaluation mode. Displays statistics upon completion.")
-@click.option("--shutdown-remote-hosts", is_flag=True, help="Shutdown remote hosts when optimization finishes.")
-@click.option("--key", type=click.Path(exists=True), envvar="KEY", help="PEM private key")
-@click.option("--cert", type=click.Path(exists=True), envvar="CERT", help="PEM certificate chain")
-@click.option("--cacert", type=click.Path(exists=True), envvar="CACERT", help="Root certificate")
+@click.option("--budget", type=int, required=True,
+              help="Optimization budget (number of optimization attempts)")
+@click.option("--limit", type=int, required=False, default=0,
+              help="Limits the number of simultaneous optimizations (<=0 indicates no limit, default: 0)",)
+@click.option("--deadline", type=float, required=False, default=0.0,
+              help="Deadline for each optimization request (<=0 indicates no deadline, default: 0)")
+@click.option("--threshold", type=float, required=False, default=0.0,
+              help="Stop optimization once threshold is reached (<=0 indicates no threshold, default: 0)")
+@click.option("--optimizer", type=click.Choice(sorted(ng.optimizers.registry.keys())), required=True, default="NGOpt",
+              help="Optimizer name")
+@click.option("--evaluation", is_flag=True,
+              help="Run in evaluation mode. Displays statistics upon completion.")
+@click.option("--shutdown-remote-hosts", is_flag=True,
+              help="Shutdown remote hosts when optimization finishes.")
+@click.option("--key", type=click.Path(exists=True), envvar="KEY",
+              help="PEM private key")
+@click.option("--cert", type=click.Path(exists=True), envvar="CERT",
+              help="PEM certificate chain")
+@click.option("--cacert", type=click.Path(exists=True), envvar="CACERT",
+              help="Root certificate")
 @click.argument("parameters", type=click.File())
 @click.argument("hosts", nargs=-1)
 @click.pass_context

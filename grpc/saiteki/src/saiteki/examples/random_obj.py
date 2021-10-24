@@ -1,7 +1,9 @@
 import random
 
+
 def pure_random(candidate, *args, **kwargs):
     return random.random()
+
 
 class RandomObjective:
     def __init__(self, scalar):

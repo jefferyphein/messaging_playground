@@ -7,6 +7,7 @@ import saiteki
 
 LOGGER = logging.getLogger(__name__)
 
+
 class SaitekiServicer(saiteki.protobuf.SaitekiServicer):
     def __init__(self, keep_alive=False):
         self.objective_functions = dict()
@@ -26,7 +27,7 @@ class SaitekiServicer(saiteki.protobuf.SaitekiServicer):
                     objective_function = saiteki.core.load_func(obj_func)
                     self.objective_functions[obj_func_name] = objective_function
                     LOGGER.debug("Added objective function to cache (func: %s)" % obj_func_name)
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details("JSON decode error when parsing objective function.")
             LOGGER.exception("JSON decode error.")
@@ -40,15 +41,16 @@ class SaitekiServicer(saiteki.protobuf.SaitekiServicer):
         # Convert candidate into a dictionary.
         candidate_dict = {
             parameter.name: getattr(parameter, parameter.WhichOneof('type'))
-                for parameter in request.parameters
+            for parameter in request.parameters
         }
         print(candidate_dict)
 
         try:
             # Score the candidate.
             return saiteki.protobuf.CandidateResponse(
-                score=objective_function(candidate_dict,
-                                         timeout=context.time_remaining()
+                score=objective_function(
+                    candidate_dict,
+                    timeout=context.time_remaining()
                 )
             )
         except Exception as e:

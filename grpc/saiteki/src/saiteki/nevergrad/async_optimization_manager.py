@@ -3,6 +3,7 @@ from functools import partial
 from ..client import AsyncOptimizationManagerBase
 import saiteki
 
+
 class AsyncOptimizationManager(AsyncOptimizationManagerBase):
     async def optimize(self, budget, optimizer, *args, **kwargs):
         # Build nevergrad parameters from the saiteki parameters.
@@ -28,7 +29,7 @@ class AsyncOptimizationManager(AsyncOptimizationManagerBase):
 
         # Update the best candidate once nevergrad has been told the score.
         def tell_callback(opt, candidate, score):
-            updated = self.update_best_candidate(candidate.kwargs, score)
+            self.update_best_candidate(candidate.kwargs, score)
             # Do something if the candidate was updated?
 
         # Register a callback whenever we tell nevergrad a score.
@@ -45,7 +46,8 @@ class AsyncOptimizationManager(AsyncOptimizationManagerBase):
             for n in range(budget):
                 candidate = optimizer.ask()
                 task = await self.submit_candidate(candidate.kwargs, context)
-                if task is None: break
+                if task is None:
+                    break
                 task.add_done_callback(partial(candidate_done_callback, candidate))
 
         candidate = optimizer.provide_recommendation()

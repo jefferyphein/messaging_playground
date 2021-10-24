@@ -8,8 +8,11 @@ import saiteki.nevergrad
 
 LOGGER = logging.getLogger(__name__)
 
+
 class AsyncOptimizationManagerBase:
-    def __init__(self, parameters, hosts=list(), shutdown_remote_hosts=False, limit=0, deadline=0.0, threshold=0.0, key=None, cert=None, cacert=None, *args, **kwargs):
+    def __init__(self, parameters, hosts=list(), shutdown_remote_hosts=False,
+                 limit=0, deadline=0.0, threshold=0.0,
+                 key=None, cert=None, cacert=None, *args, **kwargs):
         client_key = open(key, "rb").read() if key else None
         client_cert = open(cert, "rb").read() if cert else None
         client_cacert = open(cacert, "rb").read() if cacert else None
@@ -81,7 +84,7 @@ class AsyncOptimizationManagerBase:
             except grpc.aio.AioRpcError as e:
                 if e.code() == grpc.StatusCode.UNAVAILABLE:
                     LOGGER.debug("Unable to issue shutdown to remote host due to it being unavailable. Oh well.")
-            except Exception as e:
+            except Exception:
                 LOGGER.exception("Uncaught exception.")
                 raise
 
@@ -101,16 +104,25 @@ class AsyncOptimizationManagerBase:
                 return response.score
             except grpc.aio.AioRpcError as e:
                 if e.code() == grpc.StatusCode.RESOURCE_EXHAUSTED:
-                    LOGGER.debug("Remote host resource exhausted, trying next remote host (address: %s)", remote_host.address)
+                    LOGGER.debug(
+                        "Remote host resource exhausted, trying next remote host (address: %s)",
+                        remote_host.address
+                    )
                 elif e.code() == grpc.StatusCode.UNAVAILABLE:
-                    LOGGER.debug("Remote host unavailable, trying next remote host (address: %s)", remote_host.address)
+                    LOGGER.debug(
+                        "Remote host unavailable, trying next remote host (address: %s)",
+                        remote_host.address
+                    )
                 elif e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                    LOGGER.warn("RPC deadline exceeded (address: %s, deadline: %.2f)", remote_host.address, self._deadline)
+                    LOGGER.warn(
+                        "RPC deadline exceeded (address: %s, deadline: %.2f)",
+                        remote_host.address, self._deadline
+                    )
                     break
                 elif e.code() == grpc.StatusCode.INVALID_ARGUMENT:
                     LOGGER.warn("Invalid argument: %s", e.details())
                     break
-            except Exception as e:
+            except Exception:
                 LOGGER.exception("Uncaught exception.")
                 raise
 

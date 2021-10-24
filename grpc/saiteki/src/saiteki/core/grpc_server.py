@@ -3,6 +3,7 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
+
 class GrpcServerBase:
     def __init__(self, bind_addr="[::1]:0", key=None, cert=None, cacert=None, authentication=False, *args, **kwargs):
         LOGGER = logging.getLogger("saiteki.grpc_server")
