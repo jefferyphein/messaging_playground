@@ -23,7 +23,7 @@ async def _shutdown(loop, aio_server, aio_client, signal=None):
 
 def _handle_exception(aio_server, aio_client, loop, context):
     LOGGER.exception("An uncaught exception was detected")
-    asyncio.create_task(_shutdown(loop, aio_server, client))
+    asyncio.create_task(_shutdown(loop, aio_server, aio_client))
 
 
 async def _standalone(parameters, evaluation, *args, **kwargs):

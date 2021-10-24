@@ -1,6 +1,5 @@
 from .grpc_server import GrpcServerBase  # noqa: F401
 from .async_grpc_server import AsyncGrpcServerBase  # noqa: F401
-from .async_service import launch_service  # noqa: F401
 from .parameters import Parameter, Parameters, Constraint  # noqa: F401
 from .optimization_context import OptimizationContext  # noqa: F401
 

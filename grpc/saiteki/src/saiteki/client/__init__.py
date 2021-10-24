@@ -15,14 +15,14 @@ from .remote_host import RemoteHost  # noqa: F401
 LOGGER = logging.getLogger(__name__)
 
 
-async def _shutdown(loop, client, signal=None):
+async def _shutdown(loop, aio_client, signal=None):
     LOGGER.critical("Shutdown signal received (%s), waiting for server shutdown...", signal)
-    await client.shutdown()
+    await aio_client.shutdown()
 
 
-def _handle_exception(client, loop, context):
+def _handle_exception(aio_client, loop, context):
     LOGGER.exception("An uncaught exception was detected")
-    asyncio.create_task(_shutdown(loop, client))
+    asyncio.create_task(_shutdown(loop, aio_client))
 
 
 async def optimizer(parameters, evaluation, *args, **kwargs):
@@ -30,34 +30,23 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
 
     # Set up the client.
     if evaluation:
-        client = AsyncEvaluationClient(parameters, *args, **kwargs)
+        aio_client = AsyncEvaluationClient(parameters, *args, **kwargs)
     else:
-        client = saiteki.nevergrad.AsyncOptimizationClient(parameters, *args, **kwargs)
+        aio_client = saiteki.nevergrad.AsyncOptimizationClient(parameters, *args, **kwargs)
 
     # Add signal handlers and exception handler to main event loop.
     signals = [signal.SIGTERM, signal.SIGINT, signal.SIGHUP]
     for s in signals:
         loop.add_signal_handler(
-            s, lambda s=s: asyncio.create_task(_shutdown(loop, client, signal=s))
+            s, lambda s=s: asyncio.create_task(_shutdown(loop, aio_client, signal=s))
         )
-    loop.set_exception_handler(partial(_handle_exception, client))
+    loop.set_exception_handler(partial(_handle_exception, aio_client))
 
     # Run the optimizer.
-    if evaluation:
-        scores = await client.optimize(*args, **kwargs)
-
-        import statistics
-        print("samples", len(scores))
-        print("mean", statistics.mean(scores))
-        print("min", min(scores))
-        print("max", max(scores))
-        print("stdev", statistics.stdev(scores))
-    else:
-        candidate, score = await client.optimize(*args, **kwargs)
-        print(candidate, score)
+    await aio_client.run(*args, **kwargs)
 
     # Shutdown client.
-    await client.shutdown()
+    await aio_client.shutdown()
 
     # Clean up all loose ends and stop the loop.
     tasks = list(task for task in asyncio.all_tasks() if task is not asyncio.current_task())
@@ -91,7 +80,7 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
 @click.option("--cacert", type=click.Path(exists=True), envvar="CACERT",
               help="Root certificate")
 @click.argument("parameters", type=click.File())
-@click.argument("hosts", nargs=-1)
+@click.argument("remote_hosts", nargs=-1)
 @click.pass_context
 def client_cli(ctx, parameters, *args, **kwargs):
     """Starts an optimization client."""

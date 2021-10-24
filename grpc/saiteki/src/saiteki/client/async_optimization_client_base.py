@@ -13,7 +13,6 @@ class AsyncOptimizationClientBase:
     def __init__(self, parameters, remote_hosts=list(), shutdown_remote_hosts=False,
                  limit=0, deadline=0.0, threshold=0.0,
                  key=None, cert=None, cacert=None, *args, **kwargs):
-        print(remote_hosts)
         client_key = open(key, "rb").read() if key else None
         client_cert = open(cert, "rb").read() if cert else None
         client_cacert = open(cacert, "rb").read() if cacert else None
