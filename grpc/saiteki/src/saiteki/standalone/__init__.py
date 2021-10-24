@@ -81,7 +81,7 @@ async def _standalone(parameters, evaluation, *args, **kwargs):
               help="Optimizer name")
 @click.argument("parameters", type=click.File())
 @click.pass_context
-def server_cli(ctx, parameters, *args, **kwargs):
+def standalone_cli(ctx, parameters, *args, **kwargs):
     """Starts a standalone optimization service."""
 
     data = yaml.safe_load(parameters.read())
