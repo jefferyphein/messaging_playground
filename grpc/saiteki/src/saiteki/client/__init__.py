@@ -75,6 +75,8 @@ async def _client(parameters, evaluation, *args, **kwargs):
               help="Run in evaluation mode. Displays statistics upon completion.")
 @click.option("--shutdown-remote-hosts", is_flag=True,
               help="Shutdown remote hosts when optimization finishes.")
+@click.option("--save-history", type=click.Path(exists=False), default=None,
+              help="Save optimization history to file. Valid extensions: sqlite3, txt, yaml, csv")
 @click.option("--key", type=click.Path(exists=True), envvar="KEY",
               help="PEM private key")
 @click.option("--cert", type=click.Path(exists=True), envvar="CERT",

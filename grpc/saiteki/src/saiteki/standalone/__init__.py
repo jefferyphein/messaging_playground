@@ -79,6 +79,8 @@ async def _standalone(parameters, evaluation, *args, **kwargs):
               help="Deadline for each optimization request (<=0 indicates no deadline, default: 0)")
 @click.option("--threshold", type=float, required=False, default=0.0,
               help="Stop optimization once threshold is reached (<=0 indicates no threshold, default: 0)")
+@click.option("--save-history", type=click.Path(), default=None,
+              help="Save optimization history to file. Valid extensions: sqlite, txt, yaml, csv")
 @click.option("--optimizer", type=click.Choice(sorted(ng.optimizers.registry.keys())), required=True, default="NGOpt",
               help="Optimizer name")
 @click.argument("parameters", type=click.File())

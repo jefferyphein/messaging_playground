@@ -2,6 +2,7 @@
 
 import collections
 import json
+from sqlalchemy import Table, Column, Integer, Float
 import saiteki
 
 
@@ -47,6 +48,14 @@ class Parameter(collections.abc.Mapping):
             upper=upper,
             start=start,
         )
+
+    def sqlite_column(self):
+        if self['type'] == "INT" or self['type'] == "INT64":
+            return Column(self['name'], Integer)
+        elif self['type'] == "FLOAT":
+            return Column(self['name'], Float)
+        else:
+            raise ValueError(f"Invalid type '{self['type']}'.")
 
     def __getitem__(self, key):
         """Get item from mapping."""
@@ -148,6 +157,11 @@ class Parameters(collections.abc.Mapping):
         self.parameters = {param['name']: param for param in self.ordered_parameters}
         self.objective_function = objective_function
         self.constraints = list(Constraint(self.parameters, **constraint) for constraint in constraints)
+
+    def sqlite_table(self, engine, name, metadata):
+        columns = list(param.sqlite_column() for param in self.parameters.values())
+        columns.append(Column("_score", Float))
+        return Table(name, metadata, Column('id', Integer, primary_key=True), *columns)
 
     def protobuf_request(self, candidate_dict):
         """Convert a candidate dictionary into a Protobuf request.

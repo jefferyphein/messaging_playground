@@ -4,6 +4,7 @@ from .grpc_server import GrpcServerBase  # noqa: F401
 from .async_grpc_server import AsyncGrpcServerBase  # noqa: F401
 from .parameters import Parameter, Parameters, Constraint  # noqa: F401
 from .optimization_context import OptimizationContext  # noqa: F401
+from .database import Database  # noqa: F401
 
 
 def _func_name(func):

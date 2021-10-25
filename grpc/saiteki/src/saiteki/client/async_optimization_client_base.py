@@ -15,7 +15,7 @@ class AsyncOptimizationClientBase:
     """Base class for the asynchronous optimizer."""
 
     def __init__(self, parameters, remote_hosts=list(), shutdown_remote_hosts=False,
-                 limit=0, deadline=0.0, threshold=0.0,
+                 limit=0, deadline=0.0, threshold=0.0, save_history=None,
                  key=None, cert=None, cacert=None, *args, **kwargs):
         """Construct a basic optimization client.
 
@@ -58,8 +58,10 @@ class AsyncOptimizationClientBase:
         self._shutdown = asyncio.Event()
         self._shutdown_remote_hosts = shutdown_remote_hosts
 
+        self._num_candidates = 0
         self._best_candidate = None
         self._best_score = float('inf')
+        self._database = saiteki.core.Database(self.parameters, save_history)
 
     @abc.abstractmethod
     async def optimize(self, *args, **kwargs):
@@ -118,8 +120,11 @@ class AsyncOptimizationClientBase:
                 return None
 
         await context.acquire()
-        task = asyncio.create_task(self._objective_function(candidate_dict))
-        task.add_done_callback(partial(self._objective_function_done, context, asyncio.get_event_loop()))
+        self._num_candidates += 1
+        task = asyncio.create_task(self._objective_function(candidate_dict, self._num_candidates))
+        task.add_done_callback(
+            partial(self._objective_function_done, context, asyncio.get_event_loop())
+        )
         return task
 
     async def shutdown(self):
@@ -144,7 +149,9 @@ class AsyncOptimizationClientBase:
                 LOGGER.exception("Uncaught exception.")
                 raise
 
-    async def _objective_function(self, candidate_dict):
+        self._database.flush_to_disk()
+
+    async def _objective_function(self, candidate_dict, id_=0):
         # Generate protobuf candidate request
         request = self.parameters.protobuf_request(candidate_dict)
 
@@ -152,12 +159,14 @@ class AsyncOptimizationClientBase:
         remote_host_ids = list(range(len(self._remote_hosts)))
         random.shuffle(remote_host_ids)
 
+        score = float('inf')
         for remote_host_id in remote_host_ids:
             remote_host = self._remote_hosts[remote_host_id]
 
             try:
                 response = await remote_host.objective_function(request, self._deadline)
-                return response.score
+                score = response.score
+                break
             except grpc.aio.AioRpcError as e:
                 if e.code() == grpc.StatusCode.RESOURCE_EXHAUSTED:
                     LOGGER.debug(
@@ -182,8 +191,10 @@ class AsyncOptimizationClientBase:
                 LOGGER.exception("Uncaught exception.")
                 raise
 
+        self._database.record_candidate_score(candidate_dict, score, id_)
+
         LOGGER.debug("Unable to submit request to any remote host, ignoring candidate.")
-        return float('inf')
+        return score
 
     def _objective_function_done(self, context, loop, task):
         # Release the resource held by this call.

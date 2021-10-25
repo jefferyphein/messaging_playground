@@ -10,7 +10,8 @@ setup(
         "grpcio",
         "nevergrad",
         "protobuf",
-        "pyyaml"
+        "pyyaml",
+        "sqlalchemy",
     ],
     packages=find_packages("src"),
     package_dir={'': 'src'},
