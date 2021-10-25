@@ -1,3 +1,5 @@
+"""Client-specific submodule."""
+
 import click
 import yaml
 import asyncio
@@ -25,7 +27,7 @@ def _handle_exception(aio_client, loop, context):
     asyncio.create_task(_shutdown(loop, aio_client))
 
 
-async def optimizer(parameters, evaluation, *args, **kwargs):
+async def _client(parameters, evaluation, *args, **kwargs):
     loop = asyncio.get_event_loop()
 
     # Set up the client.
@@ -83,10 +85,9 @@ async def optimizer(parameters, evaluation, *args, **kwargs):
 @click.argument("remote_hosts", nargs=-1)
 @click.pass_context
 def client_cli(ctx, parameters, *args, **kwargs):
-    """Starts an optimization client."""
-
+    """Start an optimization client."""
     data = yaml.safe_load(parameters.read())
     parameters.close()
     parameters = saiteki.core.Parameters(**data)
 
-    exit(asyncio.run(optimizer(parameters, *args, **kwargs)))
+    exit(asyncio.run(_client(parameters, *args, **kwargs)))

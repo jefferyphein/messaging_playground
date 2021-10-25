@@ -1,3 +1,5 @@
+"""Base class for the asynchronous optimizer."""
+
 import logging
 import grpc
 import abc
@@ -10,9 +12,30 @@ LOGGER = logging.getLogger(__name__)
 
 
 class AsyncOptimizationClientBase:
+    """Base class for the asynchronous optimizer."""
+
     def __init__(self, parameters, remote_hosts=list(), shutdown_remote_hosts=False,
                  limit=0, deadline=0.0, threshold=0.0,
                  key=None, cert=None, cacert=None, *args, **kwargs):
+        """Construct a basic optimization client.
+
+        Arguments:
+            parmaeters: A `saiteki.core.Parameters` object.
+            remote_hosts: A list of remote host addresses as strings.
+            shutdown_remote_hosts: Boolean indicating whether to send shutdown
+                requests to remote hosts when this client is shutdown.
+            limit: The maximum number of outstanding evaluations allowed.
+            deadline: The deadline for an evaluation. If deadline <= 0, there
+                will be no deadline and the evaluation is affored an unbounded
+                amount of time to finish. If evaluation is not completed by the
+                deadline, it's score will be set to Infinity.
+            threshold: Do not submit additional requests once a score below
+                this value has been achieved. If threshold <= 0, all
+                evaluations within the budget will be submitted.
+            key: Filename containing client private key. May be None.
+            cert: Filename containing client root certificate. May be None.
+            cacert: Filename containing certificate chain. May be None.
+        """
         client_key = open(key, "rb").read() if key else None
         client_cert = open(cert, "rb").read() if cert else None
         client_cacert = open(cacert, "rb").read() if cacert else None
@@ -40,14 +63,27 @@ class AsyncOptimizationClientBase:
 
     @abc.abstractmethod
     async def optimize(self, *args, **kwargs):
+        """Optimize."""
         pass
 
     @abc.abstractmethod
     async def run(self, *args, **kwargs):
+        """Run the optimizer."""
         pass
 
-    def update_best_candidate(self, candidate_dict, score):
-        if score < self._best_score:
+    def update_best_candidate(self, candidate_dict, score, force=False):
+        """Update the best candidate, if it's actually an improvement.
+
+        Arguments:
+            candidate_dict: A dictionary containing key-value pairs of the
+                candidate under consideration.
+            score: The candidate's score.
+            force: A boolean indicating that the candidate should be updated
+                regardless of whether the score was an improvement or not.
+
+            Returns: A boolean indicating whether the best candidate was updated.
+        """
+        if score < self._best_score or force:
             self._best_score = score
             self._best_candidate_dict = candidate_dict
             self.parameters.update_start_candidate(candidate_dict)
@@ -58,6 +94,16 @@ class AsyncOptimizationClientBase:
         return False
 
     async def submit_candidate(self, candidate_dict, context):
+        """Submit a candidate for evaluation.
+
+        Arguments:
+            candidate_dict: A dictionary containing the key-value pairs of the
+                candidate to be evaluated.
+            context: A `saiteki.core.OptimizationContext` object.
+
+        Returns: A task corresponding to the scheduled asynchronous evaluation.
+            May return None, indicating that no evaluation was scheduled.
+        """
         # Block while resources are in use.
         if self._limit_semaphore:
             await self._limit_semaphore.acquire()
@@ -77,6 +123,12 @@ class AsyncOptimizationClientBase:
         return task
 
     async def shutdown(self):
+        """Shutdown the client.
+
+        Shutdown the client. This call may also issue remote shutdown requests
+        to all configured remote hosts if the `shutdown_remote_hosts` parameter
+        was passed to the constructor.
+        """
         if not self._shutdown.is_set():
             LOGGER.critical("Shutting down optimization client...")
             self._shutdown.set()

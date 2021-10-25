@@ -1,10 +1,21 @@
+"""Asynchronous evaluation optimizer."""
+
 import statistics
 import saiteki.core
 from .async_optimization_client_base import AsyncOptimizationClientBase
 
 
 class AsyncEvaluationClient(AsyncOptimizationClientBase):
+    """Asynchronmous evaluation optimizer."""
+
     async def optimize(self, budget, *args, **kwargs):
+        """Evaluate the best-known candidate.
+
+        Arguments:
+            budget: The number of evaluations to perform.
+
+        Returns: a list of scores, one for each evaluation performed.
+        """
         candidate_dict = self.parameters.candidate_dict()
         scores = list()
 
@@ -25,6 +36,11 @@ class AsyncEvaluationClient(AsyncOptimizationClientBase):
         return scores
 
     async def run(self, *args, **kwargs):
+        """Evaluate the best-known candidate and display statistics.
+
+        This function calls `self.optimize` and then displays statistics about
+        the distribution of scores it collected.
+        """
         scores = await self.optimize(*args, **kwargs)
         print("samples", len(scores))
         print("mean", statistics.mean(scores))

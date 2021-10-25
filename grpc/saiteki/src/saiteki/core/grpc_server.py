@@ -1,3 +1,5 @@
+"""Base class for gRPC server."""
+
 import grpc
 import logging
 
@@ -5,7 +7,22 @@ LOGGER = logging.getLogger(__name__)
 
 
 class GrpcServerBase:
+    """Base class for gRPC server."""
+
     def __init__(self, bind_addr="[::1]:0", key=None, cert=None, cacert=None, authentication=False, *args, **kwargs):
+        """Construct a gRPC base object.
+
+        Arguments:
+            bind_addr: The address to which this server will be bound. May be
+                any address that gRPC understands, see gRPC documentation for
+                details. Defaults to "[::1]:0", which is ipv6 notation for
+                localhost on a random port.
+            key: Filename containing server private key. May be None.
+            cert: Filename containing server certificate. May be None.
+            cacert: Filename containing certificate chain. May be None.
+            authentication: Boolean indicating whether client authentication
+                should be enforced.
+        """
         LOGGER = logging.getLogger("saiteki.grpc_server")
 
         self.bind_addr = bind_addr

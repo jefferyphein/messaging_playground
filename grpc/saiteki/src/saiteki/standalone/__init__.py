@@ -1,3 +1,5 @@
+"""Standalone optimization submodule."""
+
 import click
 import signal
 import yaml
@@ -82,8 +84,11 @@ async def _standalone(parameters, evaluation, *args, **kwargs):
 @click.argument("parameters", type=click.File())
 @click.pass_context
 def standalone_cli(ctx, parameters, *args, **kwargs):
-    """Starts a standalone optimization service."""
+    """Start a standalone optimization service.
 
+    Arguments:
+        parameters: YAML file containing configuration parameters.
+    """
     data = yaml.safe_load(parameters.read())
     parameters.close()
     parameters = saiteki.core.Parameters(**data)

@@ -1,10 +1,12 @@
+"""Core functionality."""
+
 from .grpc_server import GrpcServerBase  # noqa: F401
 from .async_grpc_server import AsyncGrpcServerBase  # noqa: F401
 from .parameters import Parameter, Parameters, Constraint  # noqa: F401
 from .optimization_context import OptimizationContext  # noqa: F401
 
 
-def func_name(func):
+def _func_name(func):
     if isinstance(func, dict):
         return list(func.keys())[0]
     elif isinstance(func, str):
@@ -13,11 +15,11 @@ def func_name(func):
         raise ValueError(f"Unexpected function type {type(func)}. Expected 'dict' or 'str'.")
 
 
-def load_func(func):
+def _load_func(func):
     if isinstance(func, dict):
         name = list(func.keys())[0]
         kwargs = func[name]
-        func = load_func(name)
+        func = _load_func(name)
         return func(**kwargs)
     elif isinstance(func, str):
         import importlib

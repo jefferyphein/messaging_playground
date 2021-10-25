@@ -1,3 +1,5 @@
+"""Server-specific submodule."""
+
 import click
 import signal
 import logging
@@ -62,6 +64,5 @@ async def _server(*args, **kwargs):
 @click.argument("bind_addr", type=str)
 @click.pass_context
 def server_cli(ctx, *args, **kwargs):
-    """Starts an optimization service."""
-
+    """Start an optimization server."""
     exit(asyncio.run(_server(*args, **kwargs)))

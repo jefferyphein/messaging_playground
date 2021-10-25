@@ -1,3 +1,5 @@
+"""Optimize a customizable objective function."""
+
 import click
 import logging
 
@@ -15,6 +17,7 @@ LOGGING_LEVELS = dict(
               help="Logging level")
 @click.pass_context
 def saiteki_cli(ctx, loglevel):
+    """Optimize a customizable objective function."""
     logger = logging.getLogger()
     logger.setLevel(LOGGING_LEVELS[loglevel])
 
