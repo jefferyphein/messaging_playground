@@ -6,6 +6,7 @@ service Discovery {
     rpc RegisterService(RegisterServiceRequest) returns (RegisterServiceResponse);
     rpc UnregisterService(UnregisterServiceRequest) returns (UnregisterServiceResponse);
     rpc KeepAlive(KeepAliveRequest) returns (KeepAliveResponse);
+    rpc GetService(GetServiceRequest) returns (GetServiceResponse);
 }
 
 message ServiceID {
@@ -14,12 +15,16 @@ message ServiceID {
     string service_name = 3;
 }
 
-message RegisterServiceRequest {
+message Service {
     ServiceID service_id = 1;
     string hostname = 2;
     int32 port = 3;
     uint32 ttl = 4;
     repeated Metadata metadata = 15;
+};
+
+message RegisterServiceRequest {
+    Service service = 1;
 }
 
 message RegisterServiceResponse {
@@ -40,6 +45,14 @@ message KeepAliveRequest {
 
 message KeepAliveResponse {
     bool ok = 1;
+}
+
+message GetServiceRequest {
+    ServiceID service_id = 1;
+};
+
+message GetServiceResponse {
+    repeated Service service = 1;
 }
 
 message Metadata {

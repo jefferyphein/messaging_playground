@@ -29,6 +29,11 @@ class DiscoveryStub(object):
                 request_serializer=discovery__pb2.KeepAliveRequest.SerializeToString,
                 response_deserializer=discovery__pb2.KeepAliveResponse.FromString,
                 )
+        self.GetService = channel.unary_unary(
+                '/discovery.Discovery/GetService',
+                request_serializer=discovery__pb2.GetServiceRequest.SerializeToString,
+                response_deserializer=discovery__pb2.GetServiceResponse.FromString,
+                )
 
 
 class DiscoveryServicer(object):
@@ -52,6 +57,12 @@ class DiscoveryServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetService(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DiscoveryServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -69,6 +80,11 @@ def add_DiscoveryServicer_to_server(servicer, server):
                     servicer.KeepAlive,
                     request_deserializer=discovery__pb2.KeepAliveRequest.FromString,
                     response_serializer=discovery__pb2.KeepAliveResponse.SerializeToString,
+            ),
+            'GetService': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetService,
+                    request_deserializer=discovery__pb2.GetServiceRequest.FromString,
+                    response_serializer=discovery__pb2.GetServiceResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -128,5 +144,22 @@ class Discovery(object):
         return grpc.experimental.unary_unary(request, target, '/discovery.Discovery/KeepAlive',
             discovery__pb2.KeepAliveRequest.SerializeToString,
             discovery__pb2.KeepAliveResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetService(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/discovery.Discovery/GetService',
+            discovery__pb2.GetServiceRequest.SerializeToString,
+            discovery__pb2.GetServiceResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

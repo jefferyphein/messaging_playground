@@ -61,7 +61,7 @@ class DiscoveryServicer(discovery.protobuf.DiscoveryServicer):
         return Session()
 
     async def RegisterService(self, request, context):
-        service = discovery.core.Service.from_grpc_request(request)
+        service = discovery.core.Service.from_grpc_request(request.service)
         updated = service.create_cache(LocalCache).register(self._engine, LocalCache)
         if updated:
             self._logger.info("Service added (instance: %s, type: %s, name: %s)", service.instance, service.service_type, service.service_name)

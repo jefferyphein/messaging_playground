@@ -45,7 +45,7 @@ class Discovery:
             service_type=service_type,
             service_name=service_name,
         )
-        request = discovery.protobuf.RegisterServiceRequest(
+        service = discovery.protobuf.Service(
             service_id=service_id,
             hostname=hostname,
             port=int(port),
@@ -58,13 +58,16 @@ class Discovery:
             if not isinstance(metadata[key], str):
                 raise ValueError("Metadata value must be a string (key: %s)." % key)
 
-            request.metadata.append(
+            service.metadata.append(
                 discovery.protobuf.Metadata(
                     key=key,
                     value=metadata[key]
                 )
             )
 
+        request = discovery.protobuf.RegisterServiceRequest(
+            service=service
+        )
         response = self._stub.RegisterService(request)
 
     @_handle_errors
