@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
     mpz_init(n);
     mpz_set_str(n, "-1324134432432432321424322434132432412", 10);
 
-    // This behaves like printf in that you can determine immed
+    // Print the Vstr_base object. Can keep track of how many bytes have been written.
     int total_written = 0;
     total_written += vstr_add_fmt(base, base->len, "Hello $<MPZ:%p> world\n", (void*)n);
     mpz_mul(n, n, n); 
