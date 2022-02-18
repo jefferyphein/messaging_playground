@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
     // Initialize vstr library.
     if (!vstr_init()) {
         err(EXIT_FAILURE, "init");
-    }   
+    }
 
     // Create a vstr base object.
     Vstr_base *base = NULL;
@@ -36,24 +36,33 @@ int main(int argc, char **argv) {
     // Register control format MPZ type.
     vstr_fmt_add(base->conf, "<MPZ:%p>", mpz_cb, VSTR_TYPE_FMT_PTR_VOID, VSTR_TYPE_FMT_END);
 
+    /* Now that we've configured the base object, we no longer directly use it.
+     * Instead, we create additional base streams using the configuration we
+     * just defined. This allows us to define custom formats once and expose
+     * their functionality to any inherited streams. */
+
     // Create mpz_t.
     mpz_t n;
     mpz_init(n);
     mpz_set_str(n, "-1324134432432432321424322434132432412", 10);
 
+    // Create a new stream, inheriting from the base configuration.
+    Vstr_base *stream = vstr_make_base(base->conf);
+
     // Print the Vstr_base object. Can keep track of how many bytes have been written.
     int total_written = 0;
-    total_written += vstr_add_fmt(base, base->len, "Hello $<MPZ:%p> world\n", (void*)n);
-    mpz_mul(n, n, n); 
-    total_written += vstr_add_fmt(base, base->len, "World $<MPZ:%p> hello\n", (void*)n);
+    total_written += vstr_add_fmt(stream, stream->len, "Hello $<MPZ:%p> world\n", (void*)n);
+    mpz_mul(n, n, n);
+    total_written += vstr_add_fmt(stream, stream->len, "World $<MPZ:%p> hello\n", (void*)n);
 
-    // Flush the vstr base object to output stream.
-    while (base->len) {
-        vstr_sc_write_fd(base, 1, base->len, fileno(stdout), NULL);
-    }   
+    // Flush our new vstr_base stream to output stream.
+    while (stream->len) {
+        vstr_sc_write_fd(stream, 1, stream->len, fileno(stdout), NULL);
+    }
 
     // Free memory.
     mpz_clear(n);
+    vstr_free_base(stream);
     vstr_free_base(base);
 
     // Deinitialize vstr library.
