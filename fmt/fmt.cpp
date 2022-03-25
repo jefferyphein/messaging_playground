@@ -22,7 +22,6 @@ void fmt_print_nargs(const char *format, int nargs, ...) {
     for (int n=0; n<nargs; n++) {
         custom_type arg{.ptr=va_arg(args, void*)};
         varargs.push_back(fmt::arg(std::to_string(n).c_str(), arg));
-        //varargs.push_back(custom_type{.ptr=va_arg(args, void*)});
     }
     va_end(args);
 

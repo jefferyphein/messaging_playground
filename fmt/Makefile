@@ -4,7 +4,7 @@ LDFLAGS = `pkg-config --libs gmp fmt`
 
 all: main libfmt_capi.so
 
-main: main.c libfmt_capi.so
+main: main.c libfmt_capi.so fmt.hpp
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS) -L. -lfmt_capi
 
 libfmt_capi.so: fmt.cpp fmt.hpp

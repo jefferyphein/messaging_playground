@@ -18,8 +18,7 @@ using lookup_type = std::unordered_map<std::string, lookup_func<Char>>;
 template<typename Char>
 static lookup_type<Char> lookup_map{
     {
-        "mpz_t",
-        [](void *value, fmt::detail::dynamic_format_specs<Char> spec) {
+        "mpz_t", [](void *value, fmt::detail::dynamic_format_specs<Char> spec) {
             int base = 10;
             if (spec.type == fmt::presentation_type::hex_lower or spec.type == fmt::presentation_type::hex_upper) {
                 base = 16;
@@ -29,7 +28,22 @@ static lookup_type<Char> lookup_map{
             std::string str{mpz_get_str(NULL, base, *n)};
             return str;
         }
-    }
+    },
+    {
+        "d", [](void *value, fmt::detail::dynamic_format_specs<Char> spec) {
+            return std::to_string(reinterpret_cast<int64_t>(value));
+        }
+    },
+    {
+        "u", [](void *value, fmt::detail::dynamic_format_specs<Char> spec) {
+            return std::to_string(reinterpret_cast<uint64_t>(value));
+        }
+    },
+    {
+        "s", [](void *value, fmt::detail::dynamic_format_specs<Char> spec) {
+            return std::string{static_cast<char*>(value)};
+        }
+    },
 };
 
 template<typename Char>
@@ -61,7 +75,9 @@ struct fmt::formatter<custom_type, Char> : fmt::formatter<std::string_view> {
     template<typename FormatCtx>
     auto format(const custom_type& value, FormatCtx& ctx) {
         if (lookup_map<Char>.count(m_type) == 0) {
-            return fmt::format_to(ctx.out(), "{}", value.ptr);
+            std::string fmt_out = "{:"+m_type+"}";
+            std::cout << fmt_out << std::endl;
+            return fmt::format_to(ctx.out(), fmt_out, value.ptr);
         }
         else {
             auto f = lookup_map<Char>[m_type];
