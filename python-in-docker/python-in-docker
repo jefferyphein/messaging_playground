@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Exit immediately when encountering a non-zero exit code.
+set -e
+
+# Determine the directory where this script was run. The Dockerfile used to create the image should
+# reside in the same directory.
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+
+# Set some default values. TAG and IMAGE_NAME may be overridden.
+TAG=${TAG:-3.12-slim-bullseye}
+IMAGE_NAME=${IMAGE_NAME:-python-local}
+IMAGE=$IMAGE_NAME:$TAG
+CONTAINER_NAME=$IMAGE_NAME-$TAG
+
+docker_container_id() {
+  docker ps -q -a --filter=name=^$CONTAINER_NAME$
+}
+
+docker_image_id() {
+  docker images -q $IMAGE
+}
+
+docker_clean() {
+  # Remove the container if it exists.
+  local container_id=$(docker_container_id)
+  [ ! -z $container_id ] && docker rm $container_id
+
+  # Remove the local image if it exists.
+  local image_id=$(docker_image_id)
+  [ ! -z $image_id ] && docker rmi $image_id
+}
+
+docker_build_and_run() {
+  # Build the local python image, if it doesn't already exist.
+  if [ -z "$(docker_image_id)" ]; then
+    docker build -t $IMAGE --build-arg UID=$(id -u) --build-arg GID=$(id -g) --build-arg TAG=$TAG -f "$SCRIPT_DIR/Dockerfile" .
+  fi
+
+  # Either run a new container, or start and attach to an existing one.
+  CONTAINER_ID="$(docker_container_id)"
+  if [ -z "$CONTAINER_ID" ]; then
+    exec docker run -it --name $CONTAINER_NAME -v "$PWD:/var/src" -w /var/src -v "$HOME:/home/user" "$IMAGE"
+  else
+    docker start $CONTAINER_ID
+    exec docker attach $CONTAINER_ID
+  fi
+}
+
+case $1 in
+  clean) docker_clean ;;
+  run) docker_build_and_run ;;
+  *)
+    echo "Usage:  python-in-docker COMMAND"
+    echo
+    echo "Run Python inside of a Docker container."
+    echo
+    echo "Commands:" 
+    echo "  run   - Build and launch a new Python-in-docker image and container."
+    echo "  clean - Remove an existing Python-in-docker container and image."
+    echo
+    echo "Environment variables:"
+    echo "  TAG          - The tag of the Python base image."
+    echo "  IMAGE_PREFIX - The prefix to use for the locally built Python-in-docker container."
+    echo
+    ;;
+esac
